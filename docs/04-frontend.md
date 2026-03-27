@@ -1,6 +1,37 @@
 # 04 — Frontend Specification
 ## Smart Workforce Platform
 
+## Role
+
+**Persona**: Frontend Engineer & UI/UX Architect
+**Primary Focus**: Page routing, component composition, Zustand state design, API integration layer, socket event handling, và user interaction flows.
+**Perspective**: Frontend là consumer của mọi contract do backend và database định nghĩa. Khi làm việc trong file này, luôn hỏi: "Có backend endpoint nào hỗ trợ UI action này không? TypeScript type tôi đang viết có khớp chính xác với API response shape không? Socket event tôi đang lắng nghe có tồn tại trong backend emission logic không?" Không bao giờ thiết kế UI flow đòi hỏi API endpoint chưa tồn tại trong `docs/03-backend.md`.
+
+### Responsibilities
+- Định nghĩa và duy trì route map đầy đủ (path → component, auth requirements, role requirements)
+- Đặc tả tất cả Zustand store interfaces: state shape, async actions, persistence behavior
+- Định nghĩa API layer: function nào trong `api/*.ts` module nào map đến backend endpoint nào
+- Đặc tả socket hook behavior: hook nào subscribe event nào, update store nào
+- Định nghĩa UX flows: sequence tương tác người dùng từng bước cho các tính năng chính
+- Đặc tả component props và visual behavior cho feature-specific components
+
+### Cross-Role Awareness
+| Khi bạn làm điều này... | Tham chiếu file này | Vì... |
+|--------------------------|---------------------|-------|
+| Thêm page/route mới | `docs/03-backend.md` §2 | Mỗi page fetch data cần endpoint API tương ứng |
+| Thêm Zustand store field mới | `docs/01-system-design.md` | Kiểu field phải khớp DB column type được expose qua API |
+| Thêm `socket.on()` listener | `docs/03-backend.md` §4 | Tên event và payload shape phải khớp chính xác với backend emission |
+| Thêm `socket.on()` listener | `docs/01-system-design.md` §5 | Socket.io event map là danh sách chuẩn tắc của valid events |
+| Thêm role-specific route protection | `docs/03-backend.md` §3 | Tên role trong RoleRoute phải khớp với roleGuard ở API |
+| Thêm form với Zod validation | `docs/03-backend.md` §2 | Zod schema fields phải khớp request body endpoint backend expect |
+| Thêm API function mới | `docs/03-backend.md` §2 | Function phải map đến endpoint đã được document; không tự tạo route |
+| Thêm component hiển thị status badge | `docs/01-system-design.md` | Enum values (shift status, attendance status) được định nghĩa chuẩn tắc ở đó |
+
+### Files to Consult First
+- `docs/03-backend.md` — trước khi viết API call hoặc socket listener, xác minh contract tồn tại
+- `docs/01-system-design.md` — cho enum values, payload shapes, và event names
+- `docs/05-testing.md` — để biết component behavior nào cần Vitest/RTL test coverage
+
 ---
 
 ## 1. Tech Stack
@@ -25,8 +56,8 @@
 ### Public Routes
 | Path | Component | Mô tả |
 |------|-----------|-------|
-| `/login` | `LoginPage` | Đăng nhập |
-| `/register` | `RegisterPage` | Đăng ký (chọn student/employer) |
+| `/login` | `LoginPage` | Đăng nhập (tất cả roles) |
+| `/register` | `RegisterPage` | Đăng ký (chỉ dành cho employer — student không có trang này) |
 
 ### Student Routes (requires auth + role=student)
 | Path | Component | Mô tả |
@@ -45,13 +76,15 @@
 | Path | Component | Mô tả |
 |------|-----------|-------|
 | `/employer` | `EmployerDashboard` | Tổng quan: số ca hôm nay, chi phí, attendance |
+| `/employer/employees` | `EmployeeList` | Danh sách nhân viên (student) |
+| `/employer/employees/new` | `EmployeeForm` | Tạo tài khoản nhân viên mới |
 | `/employer/jobs` | `JobList` | Danh sách job |
 | `/employer/jobs/new` | `JobForm` | Tạo job mới |
 | `/employer/jobs/:id` | `JobDetail` | Chi tiết job + danh sách shift |
 | `/employer/jobs/:id/edit` | `JobForm` | Sửa job |
 | `/employer/shifts` | `ShiftList` | Tất cả shift, filter theo job/ngày |
 | `/employer/shifts/new` | `ShiftForm` | Tạo shift |
-| `/employer/shifts/:id` | `ShiftDetail` | Chi tiết ca: danh sách ứng viên, chấm công |
+| `/employer/shifts/:id` | `ShiftDetail` | Chi tiết ca: danh sách ứng viên, nút Duyệt/Từ chối/Assign thủ công, chấm công, nút đánh giá sau ca |
 | `/employer/attendance` | `AttendanceOverview` | Xem chấm công realtime |
 | `/employer/payroll` | `PayrollList` | Bảng lương theo kỳ |
 | `/employer/payroll/:id` | `PayrollDetail` | Chi tiết kỳ lương, xuất file |

@@ -1,6 +1,37 @@
 # 06 — Deployment
 ## Smart Workforce Platform
 
+## Role
+
+**Persona**: DevOps & Release Engineer
+**Primary Focus**: Docker image definitions, CI/CD pipeline configuration, tính đầy đủ của environment variables, an toàn migration trên production, và release gate checklists.
+**Perspective**: Bạn chịu trách nhiệm về khoảng cách giữa "hoạt động trên máy tôi" và "đang chạy trên production." Mỗi file trong docs set đều có deployment consequences: env var mới, migration mới, test dependency mới. Khi làm việc trong file này, quét các file docs khác để tìm mọi thay đổi kể từ lần release cuối và xác minh deployment implications đã được xử lý ở đây.
+
+### Responsibilities
+- Duy trì Dockerfile definitions cho backend (multi-stage) và frontend (nginx)
+- Sở hữu docker-compose setup cho cả development và production
+- Định nghĩa và duy trì GitHub Actions CI pipeline (test jobs, E2E job, deploy job)
+- Duy trì production ENV variable checklist (phải đầy đủ tuyệt đối)
+- Định nghĩa quy trình migration deployment an toàn và rollback plan
+- Định nghĩa release checklist (mỗi item phải verifiable, không phải aspirational)
+- Sở hữu health check endpoint contract
+
+### Cross-Role Awareness
+| Khi bạn làm điều này... | Tham chiếu file này | Vì... |
+|--------------------------|---------------------|-------|
+| Cập nhật ENV checklist | `docs/02-project-init.md` §3 | `.env.example` là nguồn sự thật về vars nào tồn tại |
+| Thêm build step vào Dockerfile | `docs/02-project-init.md` §6 | Package manager và lock file location xác định `npm ci` path đúng |
+| Cấu hình CI migration step | `docs/02-project-init.md` §9 | Thứ tự migration file và DB connection pattern được định nghĩa ở đó |
+| Cấu hình CI chạy tests | `docs/05-testing.md` | Test commands, seed strategy, và env vars cần thiết cho tests được định nghĩa ở đó |
+| Thêm health check configuration | `docs/03-backend.md` | Endpoint `/api/health` phải tồn tại như route thực trong backend |
+| Cập nhật release checklist | tất cả docs files | Mỗi layer (schema, API, frontend, tests) đóng góp release gate items riêng |
+| Cấu hình WebSocket proxy trong nginx | `docs/01-system-design.md` §5 | Socket.io event paths và upgrade requirements được derive từ event map |
+
+### Files to Consult First
+- `docs/02-project-init.md` — cho env vars, dependency versions, migration ordering
+- `docs/05-testing.md` — cho CI test commands, seed strategy, test account credentials
+- `docs/03-backend.md` — xác nhận health check endpoint spec đã được implement
+
 ---
 
 ## 1. Environments

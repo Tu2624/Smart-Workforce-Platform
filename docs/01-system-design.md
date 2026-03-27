@@ -1,6 +1,35 @@
 # 01 — System Design
 ## Smart Workforce Platform
 
+## Role
+
+**Persona**: Database Architect & Systems Designer
+**Primary Focus**: Mô hình dữ liệu chuẩn tắc, kiến trúc hệ thống, luồng dữ liệu, và các công thức tính toán nghiệp vụ.
+**Perspective**: Mọi quyết định ở đây là nguồn sự thật (source of truth) mà tất cả các layer khác phải tuân theo. Khi thiết kế hoặc chỉnh sửa file này, hãy tư duy theo hướng tính toàn vẹn dữ liệu, ràng buộc tham chiếu, và các nghĩa vụ contract với downstream — không phải sự tiện lợi khi implement.
+
+### Responsibilities
+- Định nghĩa và duy trì DB schema (cấu trúc bảng, kiểu dữ liệu, constraints, indexes)
+- Sở hữu tất cả data flow diagrams (đăng ký ca, check-in, tính lương, auto-assign)
+- Định nghĩa Socket.io event map (tên event, payload shape, người nhận)
+- Định nghĩa công thức nghiệp vụ: tính lương (bonus/penalty), thuật toán reputation score
+- Xác lập các tập enum value mà Zod schemas ở backend và Badge components ở frontend phụ thuộc vào
+
+### Cross-Role Awareness
+| Khi bạn làm điều này... | Tham chiếu file này | Vì... |
+|--------------------------|---------------------|-------|
+| Thêm hoặc đổi tên cột DB | `docs/03-backend.md` | API response shapes và Zod schemas phải phản ánh thay đổi |
+| Thêm hoặc đổi tên cột DB | `docs/04-frontend.md` | TypeScript interfaces trong `frontend/src/types/` phải đồng bộ |
+| Thêm/sửa Socket.io event | `docs/04-frontend.md` §6 | Frontend socket hooks lắng nghe đúng tên event định nghĩa ở đây |
+| Thay đổi công thức lương (§7) | `docs/05-testing.md` §2 | `payrollCalc.test.ts` encode giá trị công thức cụ thể |
+| Thay đổi delta reputation | `docs/05-testing.md` §2 | `reputationCalc.test.ts` assert các số cụ thể |
+| Thêm enum value mới (vd: shift status) | `docs/03-backend.md` §2 | Zod schemas validate theo enum set; `docs/04-frontend.md` Badge.tsx map màu theo enum |
+| Thay đổi foreign key hoặc cascade rule | `docs/02-project-init.md` | Thứ tự migration file và rollback plan phải được cập nhật |
+
+### Files to Consult First
+- `docs/03-backend.md` — xác minh API contract nhất quán với thay đổi schema
+- `docs/04-frontend.md` — xác minh TypeScript types và socket hook event names đồng bộ
+- `docs/05-testing.md` — cập nhật test assertions khi constants công thức thay đổi
+
 ---
 
 ## 1. Tổng Quan Hệ Thống
@@ -64,12 +93,15 @@
 
 ### 3.1 Đăng ký ca (Student)
 ```
-Student → POST /shifts/:id/register
-       → Backend: kiểm tra conflict lịch
-       → Nếu OK: tạo shift_registration (status=pending)
-       → Employer nhận notification qua Socket.io
-       → Employer duyệt → shift_registration.status=approved
-       → Student nhận notification: "Ca đã được duyệt"
+Employer publish shifts cho tuần tới
+  → Hệ thống gửi notification cho tất cả students: "Đăng ký ca tuần tới đã mở"
+  → Student vào app, xem danh sách ca, chọn các ca muốn làm
+  → POST /shifts/:id/register → tạo shift_registration (status=pending)
+  → Không kiểm tra conflict tại bước này — student được đăng ký nhiều ca trùng giờ
+  → Deadline: Chủ nhật 12:00 trưa (sau deadline scheduler xử lý)
+  → Employer có thể approve/reject thủ công bất lúc nào trong tuần
+  → 0:00 thứ Hai: scheduler tự động xử lý tất cả pending registrations còn lại
+  → Student nhận notification kết quả (approved/rejected)
 ```
 
 ### 3.2 Check-in / Check-out
@@ -85,17 +117,29 @@ Student → POST /attendance/checkin  { shift_id, location? }
 ```
 Background Job (mỗi ngày 00:00 hoặc khi shift kết thúc)
   → Query attendance đã completed trong kỳ
-  → hourly_rate × hours_worked + bonus - penalty
+  → hourly_rate × hours_worked (thời gian thực tế)
   → Lưu payroll record
   → Emit Socket.io: payroll:updated → Student nhận thông báo lương
 ```
 
-### 3.4 Auto-assign shift
+### 3.4 Weekly Scheduling Job (Auto-assign)
 ```
-Background Job (khi employer tạo shift mới)
-  → Query students: role=student, available, reputation_score cao nhất
-  → Kiểm tra conflict với lịch hiện tại
-  → Gán students vào shift (hoặc gửi thông báo mời đăng ký)
+Chu kỳ lập lịch hàng tuần:
+
+1. Employer tạo shifts cho tuần tới (bất kỳ lúc nào trong tuần)
+2. Student đăng ký các ca muốn làm (deadline: Chủ nhật 12:00 trưa)
+   → Student CÓ THỂ đăng ký nhiều ca trùng giờ — hệ thống không chặn
+   → Trước 12:00 trưa: nếu ca nào chưa có đăng ký → hệ thống cảnh báo employer
+3. Background Job chạy lúc 0:00 thứ Hai:
+   a. Thu thập tất cả shift_registrations status=pending của tuần tới
+   b. Với mỗi ca có nhiều người đăng ký hơn max_workers:
+      → Ưu tiên student có reputation_score cao hơn
+      → Trong cùng band điểm: ưu tiên đăng ký sớm hơn (registered_at)
+   c. Kiểm tra conflict: student không được assigned 2 ca trùng giờ
+   d. Approved: cập nhật status=approved, tăng shift.current_workers
+   e. Rejected: cập nhật status=rejected (quá max_workers hoặc conflict)
+   f. Gửi notification cho tất cả student (approved hoặc rejected)
+4. Employer review kết quả và có thể chỉnh sửa thủ công
 ```
 
 ---
@@ -135,6 +179,7 @@ employer_profiles (
 student_profiles (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id         UUID REFERENCES users(id) ON DELETE CASCADE,
+  employer_id     UUID REFERENCES users(id),  -- employer quản lý student này (1 student chỉ thuộc 1 employer)
   student_id      VARCHAR(50),          -- mã sinh viên
   university      VARCHAR(255),
   skills          TEXT[],               -- mảng kỹ năng
@@ -199,12 +244,16 @@ attendance (
   student_id      UUID REFERENCES users(id),
   check_in_time   TIMESTAMPTZ,
   check_out_time  TIMESTAMPTZ,
-  status          ENUM('on_time', 'late', 'absent', 'pending') DEFAULT 'pending',
-  late_minutes    INT DEFAULT 0,
-  hours_worked    DECIMAL(5,2),
+  status          ENUM('on_time', 'late', 'absent', 'incomplete', 'pending') DEFAULT 'pending',
+  late_minutes    INT DEFAULT 0,        -- phút đến trễ so với shift.start_time
+  early_minutes   INT DEFAULT 0,        -- phút về sớm so với shift.end_time
+  hours_worked    DECIMAL(5,2),         -- = (shift_duration - late_minutes - early_minutes) / 60
+  force_checkout  BOOLEAN DEFAULT FALSE,       -- employer đã force-close ca này
+  force_checkout_by UUID REFERENCES users(id), -- employer_id thực hiện force-checkout
   note            TEXT,
   created_at      TIMESTAMPTZ DEFAULT NOW()
 )
+-- incomplete = student đã check-in nhưng ca kết thúc mà không check-out; hours_worked = 0
 ```
 
 ### Bảng `payroll`
@@ -216,10 +265,7 @@ payroll (
   period_start    DATE NOT NULL,
   period_end      DATE NOT NULL,
   total_hours     DECIMAL(7,2),
-  base_amount     DECIMAL(12,2),
-  bonus_amount    DECIMAL(12,2) DEFAULT 0,
-  penalty_amount  DECIMAL(12,2) DEFAULT 0,
-  total_amount    DECIMAL(12,2),
+  total_amount    DECIMAL(12,2),  -- = SUM(payroll_items.subtotal)
   status          ENUM('draft', 'confirmed', 'paid') DEFAULT 'draft',
   paid_at         TIMESTAMPTZ,
   created_at      TIMESTAMPTZ DEFAULT NOW()
@@ -233,11 +279,12 @@ payroll_items (
   payroll_id      UUID REFERENCES payroll(id) ON DELETE CASCADE,
   shift_id        UUID REFERENCES shifts(id),
   attendance_id   UUID REFERENCES attendance(id),
-  hours_worked    DECIMAL(5,2),
-  hourly_rate     DECIMAL(10,2),
-  subtotal        DECIMAL(12,2),
-  bonus           DECIMAL(12,2) DEFAULT 0,
-  penalty         DECIMAL(12,2) DEFAULT 0
+  scheduled_hours   DECIMAL(5,2),             -- giờ ca gốc theo lịch (shift_duration)
+  hours_worked      DECIMAL(5,2),             -- = scheduled_hours - (late_minutes + early_minutes)/60
+  hourly_rate       DECIMAL(10,2),
+  deduction_minutes INT DEFAULT 0,            -- late_minutes + early_minutes
+  deduction_amount  DECIMAL(12,2) DEFAULT 0,  -- = deduction_minutes/60 × hourly_rate
+  subtotal          DECIMAL(12,2)             -- = scheduled_hours × hourly_rate - deduction_amount
 )
 ```
 
@@ -252,6 +299,20 @@ notifications (
   is_read     BOOLEAN DEFAULT false,
   metadata    JSONB,                 -- { shift_id, payroll_id, ... }
   created_at  TIMESTAMPTZ DEFAULT NOW()
+)
+```
+
+### Bảng `ratings`
+```sql
+ratings (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  shift_id    UUID REFERENCES shifts(id) ON DELETE CASCADE,
+  student_id  UUID REFERENCES users(id) ON DELETE CASCADE,
+  employer_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  score       INT NOT NULL CHECK (score BETWEEN 1 AND 5),
+  comment     TEXT,
+  created_at  TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(shift_id, student_id)  -- mỗi shift chỉ được rate 1 lần
 )
 ```
 
@@ -278,6 +339,8 @@ reputation_events (
 | `attendance:update` | `{ shift_id, student_id, status, check_in_time }` | Employer |
 | `shift:registered` | `{ shift_id, student_id, student_name }` | Employer |
 | `shift:approved` | `{ shift_id, registration_id }` | Student |
+| `shift:rejected` | `{ shift_id, registration_id, reason }` | Student |
+| `shift:low_registration` | `{ shift_id, title, current_count, max_workers }` | Employer |
 | `payroll:updated` | `{ payroll_id, total_amount, period }` | Student |
 | `shift:reminder` | `{ shift_id, start_time, job_title }` | Student |
 
@@ -307,7 +370,10 @@ reputation_events (
 | Đi trễ (>15 phút) | -5.0 |
 | Vắng không báo trước | -10.0 |
 | Huỷ ca sau khi được duyệt (<24h trước ca) | -7.0 |
+| Huỷ ca sau khi được duyệt (≥24h trước ca) | 0 (không phạt) |
 | Đánh giá xấu từ employer (1–2 sao) | -8.0 |
+
+> **Lưu ý**: Nếu EMPLOYER huỷ ca (không phải student), student KHÔNG bị trừ điểm reputation.
 
 ### Ảnh hưởng đến auto-assign
 - Score ≥ 150: Ưu tiên cao nhất
@@ -317,16 +383,56 @@ reputation_events (
 
 ---
 
-## 7. Bonus / Penalty Formula
+## 7. Payroll Formula
 
 ```
-base_pay      = hours_worked × hourly_rate
+scheduled_pay    = shift_duration_hours × hourly_rate      -- lương nếu đi đúng giờ, đủ ca
 
-bonus         = IF (on_time AND hours_worked >= shift_hours) THEN base_pay × 0.05 ELSE 0
+late_deduction   = (late_minutes / 60) × hourly_rate       -- trừ phần đến muộn
+early_deduction  = (early_minutes / 60) × hourly_rate      -- trừ phần về sớm
 
-penalty       = IF (late_minutes > 0 AND late_minutes <= 15) THEN base_pay × 0.02
-                ELSE IF (late_minutes > 15) THEN base_pay × 0.05
-                ELSE 0
+total_pay        = scheduled_pay - late_deduction - early_deduction
+               ≡  hours_worked × hourly_rate               -- tương đương khi implement
+```
 
-total_pay     = base_pay + bonus - penalty
+**Quy tắc:**
+- `late_minutes` = check_in_time - shift.start_time (nếu > 0, ngược lại = 0)
+- `early_minutes` = shift.end_time - check_out_time (nếu > 0, ngược lại = 0)
+- `hours_worked` = shift_duration - (late_minutes + early_minutes) / 60
+- Đi đủ giờ, đúng giờ → `total_pay = scheduled_pay` (không trừ gì)
+- Không có bonus/penalty phần trăm trong payroll
+- Reputation vẫn bị trừ/cộng theo §6 — hoàn toàn tách biệt với lương
+- `incomplete` attendance: `hours_worked = 0`, `total_pay = 0` (không tính lương ca đó)
+
+### Payroll Period
+- `period_start` = ngày 1 của tháng hiện tại
+- `period_end` = ngày cuối tháng
+- Auto-create: khi tạo `payroll_item` đầu tiên của tháng, tạo `payroll` record cho tháng đó nếu chưa có
+
+### Cancel Approved Registration
+```
+Student cancel registration có status=approved:
+  → registration.status = 'cancelled'
+  → shift.current_workers -= 1
+  → Slot mở lại (shift tiếp tục nhận đăng ký mới cho đến max_workers)
+  → Áp dụng reputation penalty theo §6 (≥24h = 0, <24h = -7.0)
+```
+
+### Force-Checkout (Employer)
+```
+Điều kiện:
+  - NOW() > shift.end_time (ca đã kết thúc)
+  - Student đã check-in nhưng attendance.status = 'incomplete' (chưa checkout)
+  - employer_id = shift.job.employer_id
+
+Limit: tối đa 3 lần / student / calendar month
+  - Đếm attendance records của student đó có force_checkout=TRUE trong tháng
+
+Khi thực hiện:
+  - check_out_time = NOW()
+  - hours_worked = (check_out_time - check_in_time) / 3600
+  - early_minutes = MAX(0, shift.end_time - check_out_time) / 60  -- thường = 0 vì force sau khi ca kết thúc
+  - status = 'on_time' hoặc 'late' (theo late_minutes đã có)
+  - force_checkout = TRUE, force_checkout_by = employer_id
+  - Trigger tính lương cho attendance này
 ```

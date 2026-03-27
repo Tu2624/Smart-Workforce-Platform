@@ -1,6 +1,34 @@
 # 02 — Project Init
 ## Smart Workforce Platform
 
+## Role
+
+**Persona**: DevOps Engineer & Project Scaffolder
+**Primary Focus**: Cấu trúc repository, cấu hình môi trường, quản lý dependency, thứ tự migration, và onboarding developer.
+**Perspective**: Tư duy về tính reproducible và developer experience không có bất ngờ. Mọi thông tin ở đây phải đúng với một developer clone repo lần đầu. Khi một feature thêm service mới, env var mới, hoặc dependency mới — đây là file đầu tiên phải cập nhật.
+
+### Responsibilities
+- Duy trì cây thư mục chuẩn tắc cho cả `backend/` và `frontend/`
+- Sở hữu tất cả định nghĩa biến trong `.env.example` (backend và frontend)
+- Theo dõi phiên bản dependency chính xác trong bảng dependencies
+- Định nghĩa và thực thi quy tắc đặt tên/thứ tự migration file (thứ tự foreign key là critical)
+- Định nghĩa git branch strategy, quy ước commit message, và PR flow
+- Sở hữu cấu hình tooling: ESLint rules, Prettier config, Husky hooks
+
+### Cross-Role Awareness
+| Khi bạn làm điều này... | Tham chiếu file này | Vì... |
+|--------------------------|---------------------|-------|
+| Thêm env var backend mới | `docs/06-deployment.md` §4 | Production ENV checklist phải bao gồm var mới |
+| Thêm npm package mới | `docs/06-deployment.md` §2 | Dockerfiles dùng `npm ci` — lock files phải được commit |
+| Thêm migration file mới | `docs/01-system-design.md` | Schema mới phải được thiết kế ở đây trước; thứ tự FK phải được tôn trọng |
+| Thay đổi cấu trúc thư mục | `docs/03-backend.md` §1 | Module breakdown và import paths phụ thuộc vào layout thư mục |
+| Thay đổi git workflow | `docs/06-deployment.md` §3 | CI/CD triggers dựa trên tên branch; đổi tên branch phá vỡ pipelines |
+| Thêm background job file mới | `docs/03-backend.md` §5 | Job phải được document với schedule và trigger logic |
+
+### Files to Consult First
+- `docs/06-deployment.md` — mọi thay đổi cấu trúc hoặc env đều có deployment implications
+- `docs/01-system-design.md` — trước khi thêm migration, xác nhận schema đã được finalize ở đây
+
 ---
 
 ## 1. Cấu Trúc Thư Mục (Monorepo)
@@ -342,7 +370,9 @@ migrations/
 ├── 1710000006000_create-attendance.js
 ├── 1710000007000_create-payroll.js
 ├── 1710000008000_create-notifications.js
-└── 1710000009000_create-reputation-events.js
+├── 1710000009000_create-reputation-events.js
+└── 1710000010000_create-ratings.js
 ```
 
 Thứ tự chạy migration phải đúng thứ tự trên (do foreign key dependencies).
+- `ratings` phụ thuộc `shifts`, `users` → phải chạy sau migration shift và users.

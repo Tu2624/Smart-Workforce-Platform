@@ -1,6 +1,37 @@
 # 05 — Testing Specification
 ## Smart Workforce Platform
 
+## Role
+
+**Persona**: QA Engineer & Test Architect
+**Primary Focus**: Testing strategy, đặc tả test cases, định nghĩa seed data, và coverage targets trên 4 testing layers.
+**Perspective**: Tests là verification layer cho mọi contract được định nghĩa trong các file docs khác. Khi làm việc trong file này, trace mỗi test case về nguồn gốc: một business rule trong `01-system-design.md`, một API contract trong `03-backend.md`, một component behavior trong `04-frontend.md`, hoặc một user flow kết hợp cả ba. Test không thể trace về spec đã document hoặc là thừa, hoặc là spec đang thiếu.
+
+### Responsibilities
+- Định nghĩa four-layer test strategy và lựa chọn tooling
+- Đặc tả unit test cases cho tất cả backend utility functions (payrollCalc, conflictCheck, reputationCalc)
+- Đặc tả integration test cases cho mỗi API endpoint (happy path + primary error cases)
+- Đặc tả frontend unit test cases cho components và Zustand stores
+- Định nghĩa E2E test scenarios (happy paths only, full actor flows)
+- Duy trì seed data definitions và thông tin đăng nhập test account cố định
+- Định nghĩa và enforce coverage targets theo từng layer
+
+### Cross-Role Awareness
+| Khi bạn làm điều này... | Tham chiếu file này | Vì... |
+|--------------------------|---------------------|-------|
+| Viết unit test assertions với số cụ thể | `docs/01-system-design.md` §6-7 | Reputation delta values và payroll formula được định nghĩa chuẩn tắc ở đó |
+| Viết integration tests cho endpoint | `docs/03-backend.md` §2 | Request shape, expected response, và error codes được định nghĩa ở đó |
+| Viết frontend component unit tests | `docs/04-frontend.md` §3 | Component props, rendered states, và callback expectations được định nghĩa ở đó |
+| Viết E2E test steps | `docs/04-frontend.md` §7 | UX flows định nghĩa sequence bước chính xác; E2E tests phải khớp |
+| Thêm seed data cho bảng mới | `docs/01-system-design.md` §4 | Table schema và valid enum values được định nghĩa ở đó |
+| Thêm seed data cho bảng mới | `docs/02-project-init.md` §9 | Thứ tự migration file xác định bảng nào tồn tại khi seed chạy |
+| Tăng coverage targets | `docs/03-backend.md` | Endpoint mới không có integration tests làm giảm actual coverage dưới target |
+
+### Files to Consult First
+- `docs/01-system-design.md` — cho giá trị constant chính xác để assert trong unit tests
+- `docs/03-backend.md` — cho API contract mà mỗi integration test đang verify
+- `docs/04-frontend.md` — cho component và UX flow mà mỗi frontend test đang cover
+
 ---
 
 ## 1. Testing Strategy
@@ -24,23 +55,47 @@
 ### `payrollCalc.test.ts`
 ```typescript
 describe('calculatePay', () => {
-  it('tính đúng base pay theo giờ làm')
-  it('cộng bonus 5% nếu đúng giờ và đủ ca')
-  it('trừ penalty 2% nếu trễ 1–15 phút')
-  it('trừ penalty 5% nếu trễ > 15 phút')
-  it('không cộng bonus nếu đi trễ')
-  it('không cho hours_worked > shift duration')
+  it('đủ ca đúng giờ → total_pay = shift_hours × hourly_rate (không trừ gì)')
+  it('đi muộn 30 phút → trừ đúng: scheduled_pay - 0.5h × rate')
+  it('về sớm 15 phút → trừ đúng: scheduled_pay - 0.25h × rate')
+  it('vừa muộn vừa về sớm → trừ cả 2: scheduled_pay - (late + early)/60 × rate')
+  it('không cho hours_worked > shift_duration')
 })
 ```
 
-### `conflictCheck.test.ts`
+### ~~`conflictCheck.test.ts`~~ — ĐÃ XÓA
+> Conflict check không còn xảy ra tại layer đăng ký. Xem `weeklyScheduler.test.ts` cho conflict resolution logic.
+
+### `weeklyScheduler.test.ts`
 ```typescript
-describe('hasShiftConflict', () => {
-  it('không conflict nếu ca mới bắt đầu sau khi ca cũ kết thúc')
-  it('không conflict nếu ca mới kết thúc trước khi ca cũ bắt đầu')
-  it('conflict nếu ca mới overlap hoàn toàn với ca cũ')
-  it('conflict nếu ca mới bắt đầu trong lúc ca cũ đang diễn ra')
-  it('không conflict với ca đã bị rejected/cancelled')
+describe('weeklyScheduler', () => {
+  it('approved student có reputation cao nhất khi ca quá max_workers')
+  it('rejected student nếu quá max_workers dù reputation đủ')
+  it('tiebreaker: cùng reputation → ưu tiên đăng ký sớm hơn (registered_at ASC)')
+  it('không approve student có conflict ca với ca đã được approve khác trong cùng lần chạy')
+  it('bỏ qua registrations được tạo sau deadline Chủ nhật 12:00 trưa')
+  it('bỏ qua shifts đã có current_workers == max_workers (đã đủ người từ manual approve)')
+  it('gửi notification cho tất cả students (approved và rejected)')
+  it('cập nhật shift.current_workers sau khi chạy')
+})
+```
+
+### Integration test: `POST /shifts/:id/register`
+```typescript
+describe('registerShift', () => {
+  it('student đăng ký 2 ca trùng giờ → cả 2 đều status=pending (không bị block)')
+  it('student đăng ký ca đã đăng ký rồi → 409 ALREADY_REGISTERED')
+  it('student đăng ký sau deadline 12:00 trưa Chủ nhật → 400 REGISTRATION_CLOSED')
+})
+```
+
+### `cancelShift.test.ts`
+```typescript
+describe('cancelShiftRegistration', () => {
+  it('hủy ≥24h trước ca → status=cancelled, reputation không thay đổi')
+  it('hủy <24h trước ca → status=cancelled, reputation -7.0')
+  it('hủy approved registration → current_workers giảm 1, slot mở lại')
+  it('employer hủy ca → tất cả students cancelled, không ai mất reputation')
 })
 ```
 
@@ -117,13 +172,21 @@ describe('POST /api/attendance/checkout', () => {
   it('200 — checkout thành công, tính đúng hours_worked')
   it('400 — chưa checkin')
 })
+
+describe('PATCH /api/attendance/:id/force-complete', () => {
+  it('200 — employer force-checkout thành công, hours_worked và status được tính đúng')
+  it('403 — đã force-checkout student này 3 lần trong tháng → FORCE_CHECKOUT_LIMIT_EXCEEDED')
+  it('400 — ca chưa kết thúc → SHIFT_NOT_ENDED')
+  it('409 — student đã checkout rồi → ALREADY_COMPLETED')
+  it('403 — employer không phải owner của shift → FORBIDDEN')
+})
 ```
 
 ### `payroll.test.ts`
 ```typescript
 describe('POST /api/payroll/calculate', () => {
   it('200 — tính đúng tổng lương cho nhiều ca trong kỳ')
-  it('200 — bao gồm bonus và penalty')
+  it('200 — bao gồm các ca đi muộn và về sớm, tính đúng giờ thực tế')
   it('403 — student không được kích hoạt tính lương')
 })
 ```
@@ -151,9 +214,9 @@ it('disabled khi đang loading')
 ### `PayrollSummaryCard.test.tsx`
 ```typescript
 it('hiển thị đúng tổng tiền')
-it('hiển thị bonus với màu xanh')
-it('hiển thị penalty với màu đỏ')
-it('tính đúng total = base + bonus - penalty')
+it('hiển thị tổng giờ làm thực tế')
+it('hiển thị hourly rate')
+it('tính đúng total = total_hours × hourly_rate')
 ```
 
 ### `useAuthStore.test.ts`
