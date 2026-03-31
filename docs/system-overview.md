@@ -23,6 +23,7 @@
 | `docs/04-frontend.md` | Frontend Engineer & UI/UX Architect | Routes, components, Zustand stores, API layer, socket hooks, UX flows |
 | `docs/05-testing.md` | QA Engineer & Test Architect | Unit tests, integration tests, E2E tests, seed data, coverage targets |
 | `docs/06-deployment.md` | DevOps & Release Engineer | Docker, CI/CD, ENV checklist, migration safety, release gates |
+| `docs/08-api-and-interfaces.md` | — (reference only) | Quick-reference for all API endpoints + TypeScript interface definitions |
 
 ---
 
@@ -145,26 +146,26 @@ Files that must stay consistent for this flow to work:
 
 Use this table when starting a new feature or making any change to quickly identify which files need updating.
 
-| Feature / Change | 01-system-design | 02-project-init | 03-backend | 04-frontend | 05-testing | 06-deployment |
-|-----------------|:----------------:|:---------------:|:----------:|:-----------:|:----------:|:-------------:|
-| New DB table | **REQUIRED** | **REQUIRED** (migration) | **REQUIRED** | maybe | **REQUIRED** (seed) | check (ENV) |
-| New DB column | **REQUIRED** | maybe (migration) | **REQUIRED** | **REQUIRED** | **REQUIRED** | — |
-| Rename DB column | **REQUIRED** | migration | **REQUIRED** | **REQUIRED** | **REQUIRED** | — |
-| New REST endpoint | maybe | — | **REQUIRED** | **REQUIRED** | **REQUIRED** | — |
-| Change request body | — | — | **REQUIRED** | **REQUIRED** | **REQUIRED** | — |
-| Change response body | maybe | — | **REQUIRED** | **REQUIRED** | **REQUIRED** | — |
-| New Socket.io event | **REQUIRED** | — | **REQUIRED** | **REQUIRED** | maybe | — |
-| New business rule constant | **REQUIRED** | — | **REQUIRED** | maybe | **REQUIRED** | — |
-| New enum value | **REQUIRED** | — | **REQUIRED** | **REQUIRED** | **REQUIRED** | — |
-| New npm dependency | — | **REQUIRED** | or frontend | or backend | — | check (Docker) |
-| New env variable | — | **REQUIRED** | **REQUIRED** | or frontend | — | **REQUIRED** |
-| New background job | maybe | **REQUIRED** (.env) | **REQUIRED** | maybe | maybe | maybe (cron) |
-| New migration file | **REQUIRED** | **REQUIRED** | — | — | **REQUIRED** (seed) | **REQUIRED** |
-| New page/route | — | — | check (endpoint) | **REQUIRED** | **REQUIRED** (E2E) | — |
-| New component | — | — | — | **REQUIRED** | **REQUIRED** (unit) | — |
-| New Zustand store | — | — | check | **REQUIRED** | **REQUIRED** | — |
-| Change auth/role logic | — | — | **REQUIRED** | **REQUIRED** | **REQUIRED** | — |
-| Change Docker/CI | — | check | — | — | check | **REQUIRED** |
+| Feature / Change | 01-system-design | 02-project-init | 03-backend | 04-frontend | 05-testing | 06-deployment | 08-api-interfaces |
+|-----------------|:----------------:|:---------------:|:----------:|:-----------:|:----------:|:-------------:|:-----------------:|
+| New DB table | **REQUIRED** | **REQUIRED** (migration) | **REQUIRED** | maybe | **REQUIRED** (seed) | check (ENV) | **REQUIRED** (add interface) |
+| New DB column | **REQUIRED** | maybe (migration) | **REQUIRED** | **REQUIRED** | **REQUIRED** | — | **REQUIRED** (update interface) |
+| Rename DB column | **REQUIRED** | migration | **REQUIRED** | **REQUIRED** | **REQUIRED** | — | **REQUIRED** (update interface) |
+| New REST endpoint | maybe | — | **REQUIRED** | **REQUIRED** | **REQUIRED** | — | **REQUIRED** (add to API table) |
+| Change request body | — | — | **REQUIRED** | **REQUIRED** | **REQUIRED** | — | **REQUIRED** (update response shape) |
+| Change response body | maybe | — | **REQUIRED** | **REQUIRED** | **REQUIRED** | — | **REQUIRED** (update response shape) |
+| New Socket.io event | **REQUIRED** | — | **REQUIRED** | **REQUIRED** | maybe | — | — |
+| New business rule constant | **REQUIRED** | — | **REQUIRED** | maybe | **REQUIRED** | — | — |
+| New enum value | **REQUIRED** | — | **REQUIRED** | **REQUIRED** | **REQUIRED** | — | **REQUIRED** (update interface type) |
+| New npm dependency | — | **REQUIRED** | or frontend | or backend | — | check (Docker) | — |
+| New env variable | — | **REQUIRED** | **REQUIRED** | or frontend | — | **REQUIRED** | — |
+| New background job | maybe | **REQUIRED** (.env) | **REQUIRED** | maybe | maybe | maybe (cron) | — |
+| New migration file | **REQUIRED** | **REQUIRED** | — | — | **REQUIRED** (seed) | **REQUIRED** | — |
+| New page/route | — | — | check (endpoint) | **REQUIRED** | **REQUIRED** (E2E) | — | — |
+| New component | — | — | — | **REQUIRED** | **REQUIRED** (unit) | — | — |
+| New Zustand store | — | — | check | **REQUIRED** | **REQUIRED** | — | maybe (new interface) |
+| Change auth/role logic | — | — | **REQUIRED** | **REQUIRED** | **REQUIRED** | — | maybe |
+| Change Docker/CI | — | check | — | — | check | **REQUIRED** | — |
 
 ---
 
