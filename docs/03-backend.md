@@ -4,48 +4,48 @@
 ## Role
 
 **Persona**: Backend Engineer & API Contract Owner
-**Primary Focus**: Đặc tả REST endpoint, middleware chain, Socket.io event emission, background job logic, và business rule implementation phía server.
-**Perspective**: Bạn đang định nghĩa contract mà frontend phải consume và tests phải verify. Mỗi endpoint bạn định nghĩa tạo ra nghĩa vụ đồng thời trên 3 file khác. Tư duy theo hướng: "Response shape này có khớp với TypeScript types của frontend không? Business rule này có khớp với công thức trong system design không? Error code này có test case tương ứng không?"
+**Primary Focus**: REST endpoint specification, middleware chain, Socket.io event emission, background job logic, and server-side business rule implementation.
+**Perspective**: You are defining the contract that the frontend must consume and tests must verify. Every endpoint you define creates obligations on 3 other files simultaneously. Think: "Does this response shape match the frontend's TypeScript types? Does this business rule match the formula in system design? Does this error code have a corresponding test case?"
 
 ### Responsibilities
-- Định nghĩa mỗi REST endpoint: method, path, auth requirements, request body, response shape, error codes
-- Đặc tả middleware behavior: authMiddleware (JWT verify, req.user), roleGuard (role enforcement), validate (Zod), errorHandler
-- Định nghĩa Socket.io event emission: service nào emit event nào, đến room nào, với payload gì
-- Đặc tả background job logic: điều kiện trigger, SQL queries, side effects, cron schedule
+- Define each REST endpoint: method, path, auth requirements, request body, response shape, error codes
+- Specify middleware behavior: authMiddleware (JWT verify, req.user), roleGuard (role enforcement), validate (Zod), errorHandler
+- Define Socket.io event emission: which service emits which event, to which room, with what payload
+- Specify background job logic: trigger conditions, SQL queries, side effects, cron schedule
 - Document server-side business rules: conflict detection SQL, late detection logic, absent detection, hours_worked cap
 
 ### Cross-Role Awareness
-| Khi bạn làm điều này... | Tham chiếu file này | Vì... |
-|--------------------------|---------------------|-------|
-| Thêm hoặc thay đổi endpoint | `docs/04-frontend.md` §8 | Function tương ứng trong `src/api/*.ts` phải được thêm/cập nhật |
-| Thay đổi tên hoặc kiểu field trong response | `docs/04-frontend.md` §4 | Zustand store interfaces và TypeScript types phụ thuộc vào tên field chính xác |
-| Thêm Socket.io event mới (server → client) | `docs/04-frontend.md` §6 | Handler `socket.on()` phải được thêm vào frontend hook tương ứng |
-| Thêm role guard mới cho route | `docs/04-frontend.md` §9 | `RoleRoute` và `ProtectedRoute` enforce cùng role ở UI level |
-| Thay đổi business rule (conflict, late, absent) | `docs/01-system-design.md` | Định nghĩa rule chuẩn tắc nằm ở đó; phải nhất quán |
-| Thay đổi business rule (conflict, late, absent) | `docs/05-testing.md` §3 | Integration test cases encode boundary conditions của rule cụ thể |
-| Thêm/thay đổi background job schedule | `docs/02-project-init.md` | Cron env var phải được thêm/cập nhật trong `.env.example` |
-| Thêm module folder mới | `docs/02-project-init.md` | Cây thư mục phải được cập nhật để phản ánh module mới |
+| When you do this... | Reference this file | Because... |
+|---------------------|---------------------|------------|
+| Add or change an endpoint | `docs/04-frontend.md` §8 | Corresponding function in `src/api/*.ts` must be added/updated |
+| Change field name or type in response | `docs/04-frontend.md` §4 | Zustand store interfaces and TypeScript types depend on exact field names |
+| Add new Socket.io event (server → client) | `docs/04-frontend.md` §6 | `socket.on()` handler must be added to the corresponding frontend hook |
+| Add new role guard to a route | `docs/04-frontend.md` §9 | `RoleRoute` and `ProtectedRoute` enforce the same role at the UI level |
+| Change business rule (conflict, late, absent) | `docs/01-system-design.md` | Canonical rule definition lives there; must stay consistent |
+| Change business rule (conflict, late, absent) | `docs/05-testing.md` §3 | Integration test cases encode the boundary conditions of the specific rule |
+| Add/change background job schedule | `docs/02-project-init.md` | Cron env var must be added/updated in `.env.example` |
+| Add new module folder | `docs/02-project-init.md` | Directory tree must be updated to reflect the new module |
 
 ### Files to Consult First
-- `docs/01-system-design.md` — xác minh DB schema hỗ trợ query đang viết
-- `docs/04-frontend.md` — xác nhận response shape khớp TypeScript types trước khi finalize contract
-- `docs/05-testing.md` — đảm bảo test tương ứng tồn tại hoặc cần được thêm cho endpoint mới
+- `docs/01-system-design.md` — verify DB schema supports the query being written
+- `docs/04-frontend.md` — confirm response shape matches TypeScript types before finalizing contract
+- `docs/05-testing.md` — ensure a corresponding test exists or needs to be added for new endpoints
 
 ---
 
 ## 1. Module Breakdown
 
-| Module | Chức năng |
-|--------|-----------|
-| **Auth** | Đăng nhập, profile (employer tự đăng ký; student do employer tạo) |
-| **Job** | CRUD job (employer), list jobs (student) |
-| **Shift** | CRUD shift, đăng ký ca, duyệt/từ chối, weekly scheduling |
-| **Attendance** | Check-in, check-out, xem lịch sử |
-| **Payroll** | Tính lương, xem bảng lương, xuất file |
-| **Notification** | Gửi, xem, đánh dấu đã đọc |
-| **Rating** | Employer đánh giá student sau ca, tính vào reputation |
-| **Report** | Thống kê ca, hiệu suất, chi phí nhân sự |
-| **Admin** | Quản lý user, khoá tài khoản, xem stats toàn hệ thống |
+| Module | Functionality |
+|--------|--------------|
+| **Auth** | Login, profile (employer self-registers; student created by employer) |
+| **Job** | CRUD jobs (employer), list jobs (student) |
+| **Shift** | CRUD shifts, shift registration, approve/reject, weekly scheduling |
+| **Attendance** | Check-in, check-out, view history |
+| **Payroll** | Calculate payroll, view payslips, export file |
+| **Notification** | Send, view, mark as read |
+| **Rating** | Employer rates student after shift, feeds into reputation |
+| **Report** | Shift statistics, performance, labor costs |
+| **Admin** | Manage users, lock accounts, view system-wide stats |
 
 ---
 
@@ -60,10 +60,10 @@
 
 ### 2.1 Auth Module — `/api/auth`
 
-> **User creation policy**: Chỉ employer mới tự đăng ký được. Student KHÔNG có chức năng tự đăng ký — tài khoản student do employer tạo qua endpoint riêng.
+> **User creation policy**: Only employers can self-register. Students do NOT have a self-registration flow — student accounts are created by the employer via a dedicated endpoint.
 
 #### `POST /api/auth/register`
-Đăng ký tài khoản employer mới (chỉ dành cho employer).
+Register a new employer account (employer only).
 ```json
 // Request
 {
@@ -76,14 +76,14 @@
 
 // Response 201
 {
-  "message": "Đăng ký thành công",
+  "message": "Registration successful",
   "user": { "id": "uuid", "email": "...", "role": "employer" },
   "token": "eyJ..."
 }
 ```
 
 #### `POST /api/employers/employees` `[E]`
-Employer tạo tài khoản student (nhân viên mới).
+Employer creates a student account (new employee).
 ```json
 // Request
 {
@@ -96,14 +96,14 @@ Employer tạo tài khoản student (nhân viên mới).
 
 // Response 201
 {
-  "message": "Tạo tài khoản nhân viên thành công",
+  "message": "Employee account created successfully",
   "user": { "id": "uuid", "email": "...", "role": "student" },
   "temp_password": "Auto-generated, sent to employee's email"
 }
 ```
 
 #### `GET /api/employers/employees` `[E]`
-Danh sách nhân viên (student) của employer. Query: `?is_active=true&page=1&limit=20`
+List employees (students) belonging to the employer. Query: `?is_active=true&page=1&limit=20`
 
 #### `POST /api/auth/login`
 ```json
@@ -118,10 +118,10 @@ Danh sách nhân viên (student) của employer. Query: `?is_active=true&page=1&
 ```
 
 #### `GET /api/auth/me` `[S|E|A]`
-Trả về thông tin user hiện tại + profile tương ứng.
+Returns the current user's information + corresponding profile.
 
 #### `PUT /api/auth/profile` `[S|E]`
-Cập nhật profile (full_name, phone, avatar_url, skills, university...).
+Update profile (full_name, phone, avatar_url, skills, university...).
 
 #### `PUT /api/auth/change-password` `[S|E|A]`
 ```json
@@ -133,14 +133,14 @@ Cập nhật profile (full_name, phone, avatar_url, skills, university...).
 ### 2.2 Job Module — `/api/jobs`
 
 #### `POST /api/jobs` `[E]`
-Tạo job mới.
+Create a new job.
 ```json
 // Request
 {
-  "title": "Nhân viên phục vụ",
+  "title": "Service Staff",
   "description": "...",
   "hourly_rate": 30000,
-  "required_skills": ["giao tiếp", "nhanh nhẹn"],
+  "required_skills": ["communication", "agility"],
   "max_workers": 5
 }
 
@@ -152,13 +152,13 @@ Tạo job mới.
 List jobs. Query params: `?status=active&page=1&limit=10`
 
 #### `GET /api/jobs/:id` `[S|E]`
-Chi tiết 1 job.
+Get single job details.
 
 #### `PUT /api/jobs/:id` `[E]`
-Sửa job (chỉ employer sở hữu job đó).
+Edit job (only the employer who owns the job).
 
 #### `DELETE /api/jobs/:id` `[E]`
-Xoá job (chỉ khi không có shift đang active).
+Delete job (only when no active shifts exist).
 
 #### `PATCH /api/jobs/:id/status` `[E]`
 ```json
@@ -170,12 +170,12 @@ Xoá job (chỉ khi không có shift đang active).
 ### 2.3 Shift Module — `/api/shifts`
 
 #### `POST /api/shifts` `[E]`
-Tạo shift cho job.
+Create a shift for a job.
 ```json
 // Request
 {
   "job_id": "uuid",
-  "title": "Ca sáng thứ 2",
+  "title": "Monday Morning Shift",
   "start_time": "2024-03-25T08:00:00+07:00",
   "end_time": "2024-03-25T12:00:00+07:00",
   "max_workers": 3,
@@ -187,34 +187,34 @@ Tạo shift cho job.
 ```
 
 #### `GET /api/shifts` `[S|E]`
-- Employer: tất cả shift của mình, filter: `?job_id=&status=&date=`
-- Student: tất cả shift `status=open` của jobs đang active, filter: `?date=&job_id=`
+- Employer: all their shifts, filter: `?job_id=&status=&date=`
+- Student: all shifts with `status=open` from active jobs, filter: `?date=&job_id=`
 
 #### `GET /api/shifts/:id` `[S|E]`
-Chi tiết shift, bao gồm danh sách workers đã đăng ký.
+Shift details, including list of registered workers.
 
 #### `PUT /api/shifts/:id` `[E]`
-Sửa shift (chỉ khi status=open).
+Edit shift (only when status=open).
 
 #### `DELETE /api/shifts/:id` `[E]`
-Huỷ shift, tự động gửi thông báo cho các student đã đăng ký.
+Cancel shift, automatically notifies registered students.
 
 #### `POST /api/shifts/:id/register` `[S]`
-Đăng ký vào ca làm.
+Register for a shift.
 ```json
 // Response 201
 { "registration": { "id": "uuid", "status": "pending", "registered_at": "..." } }
 
-// Error 409: nếu đã đăng ký ca này rồi
-{ "error": "ALREADY_REGISTERED", "message": "Bạn đã đăng ký ca này rồi" }
+// Error 409: already registered for this shift
+{ "error": "ALREADY_REGISTERED", "message": "You have already registered for this shift" }
 
-// Error 400: nếu shift đã qua deadline (Chủ nhật 12:00 trưa)
-{ "error": "REGISTRATION_CLOSED", "message": "Đã quá hạn đăng ký ca tuần này" }
+// Error 400: past registration deadline (Sunday 12:00 noon)
+{ "error": "REGISTRATION_CLOSED", "message": "Registration for this week's shifts is closed" }
 ```
-> **Không kiểm tra conflict**: Student có thể đăng ký nhiều ca trùng giờ. Scheduler sẽ giải quyết conflict khi chạy.
+> **No conflict check**: Students may register for overlapping shifts. The scheduler will resolve conflicts when it runs.
 
 #### `POST /api/shifts/:id/assign` `[E]`
-Employer manually assign student vào ca (dùng khi ca ít người trước deadline).
+Employer manually assigns a student to a shift (used when shift is understaffed before deadline).
 ```json
 // Request
 { "student_id": "uuid" }
@@ -222,27 +222,27 @@ Employer manually assign student vào ca (dùng khi ca ít người trước dea
 // Response 201
 { "registration": { "id": "uuid", "status": "approved", ... } }
 
-// Error 400: nếu ca đã full
-{ "error": "SHIFT_FULL", "message": "Ca đã đủ người" }
+// Error 400: shift is full
+{ "error": "SHIFT_FULL", "message": "This shift is already at maximum capacity" }
 ```
 
 #### `GET /api/shifts/:id/registrations` `[E]`
-Danh sách ứng viên đăng ký ca.
+List of applicants registered for the shift.
 
 #### `PATCH /api/shifts/:id/registrations/:reg_id` `[E]`
-Duyệt hoặc từ chối đăng ký.
+Approve or reject a registration.
 ```json
 { "status": "approved" }  // "approved" | "rejected"
 ```
 
 #### `DELETE /api/shifts/:id/register` `[S]`
-Huỷ đăng ký ca.
+Cancel shift registration.
 ```
-Business rule:
-- Nếu registration.status=approved trước khi hủy → shift.current_workers -= 1, slot mở lại
-- Hủy khi shift chưa bắt đầu VÀ ≥ 24h trước start_time → status=cancelled, KHÔNG trừ reputation
-- Hủy khi shift chưa bắt đầu VÀ < 24h trước start_time → status=cancelled, trừ -7.0 reputation
-- Hủy không được nếu shift đã ongoing hoặc completed
+Business rules:
+- If registration.status=approved before cancel → shift.current_workers -= 1, slot reopens
+- Cancel before shift starts AND ≥ 24h before start_time → status=cancelled, NO reputation penalty
+- Cancel before shift starts AND < 24h before start_time → status=cancelled, deduct -7.0 reputation
+- Cannot cancel if shift is ongoing or completed
 ```
 
 ---
@@ -268,35 +268,35 @@ Business rule:
 #### `POST /api/attendance/checkout` `[S]`
 ```json
 { "shift_id": "uuid" }
-// Response: cập nhật check_out_time, tính hours_worked
+// Response: updates check_out_time, calculates hours_worked
 ```
 
 #### `GET /api/attendance` `[S]`
-Lịch sử chấm công của student. Query: `?page=1&limit=20&status=`
+Student's attendance history. Query: `?page=1&limit=20&status=`
 
 #### `GET /api/attendance/shift/:shift_id` `[E]`
-Danh sách chấm công của 1 ca (employer xem).
+Attendance list for a shift (employer view).
 
 #### `PATCH /api/attendance/:id` `[E]`
-Chỉnh sửa thủ công (note, override status).
+Manual edit (note, override status).
 
 #### `PATCH /api/attendance/:id/force-complete` `[E]`
-Employer force-checkout student từ xa khi ca đã kết thúc mà student chưa checkout.
+Employer force-checks out a student remotely when the shift has ended but the student has not checked out.
 ```
 Preconditions:
-  - shift.end_time đã qua (ca đã kết thúc)
-  - attendance.status = 'incomplete' (student đã check-in nhưng chưa checkout)
-  - Employer phải là owner của shift đó
+  - shift.end_time has passed (shift has ended)
+  - attendance.status = 'incomplete' (student checked in but did not check out)
+  - Employer must be the owner of that shift
 
-Limit: tối đa 3 lần / student / calendar month
+Limit: max 3 times / student / calendar month
 
-Response 200: attendance record đã cập nhật (hours_worked, status, force_checkout=true)
+Response 200: updated attendance record (hours_worked, status, force_checkout=true)
 
 Errors:
-  403 FORCE_CHECKOUT_LIMIT_EXCEEDED — đã dùng hết 3 lần cho student này tháng này
-  400 SHIFT_NOT_ENDED           — ca chưa kết thúc
-  409 ALREADY_COMPLETED         — student đã checkout rồi
-  403 FORBIDDEN                 — employer không phải owner của shift
+  403 FORCE_CHECKOUT_LIMIT_EXCEEDED — 3 force-checkouts already used for this student this month
+  400 SHIFT_NOT_ENDED           — shift has not ended yet
+  409 ALREADY_COMPLETED         — student already checked out
+  403 FORBIDDEN                 — employer is not the owner of the shift
 ```
 
 ---
@@ -304,117 +304,117 @@ Errors:
 ### 2.5 Payroll Module — `/api/payroll`
 
 #### `GET /api/payroll` `[S]`
-Lịch sử lương của student. Query: `?period=week|month&year=2024&month=3`
+Student's payroll history. Query: `?period=week|month&year=2024&month=3`
 
 #### `GET /api/payroll/:id` `[S]`
-Chi tiết 1 kỳ lương, bao gồm `payroll_items[]`.
+Details of a single payroll period, including `payroll_items[]`.
 
 #### `GET /api/payroll/employer` `[E]`
-Bảng lương tất cả nhân viên theo kỳ. Query: `?period_start=&period_end=`
+Payroll table for all employees by period. Query: `?period_start=&period_end=`
 
 #### `POST /api/payroll/calculate` `[E]`
-Kích hoạt tính lương thủ công cho 1 kỳ.
+Manually trigger payroll calculation for a period.
 ```json
 { "period_start": "2024-03-01", "period_end": "2024-03-31" }
 ```
 
 #### `PATCH /api/payroll/:id/confirm` `[E]`
-Xác nhận bảng lương (status: draft → confirmed).
+Confirm payroll (status: draft → confirmed).
 
 #### `PATCH /api/payroll/:id/paid` `[E]`
-Đánh dấu đã thanh toán (status: confirmed → paid).
+Mark as paid (status: confirmed → paid).
 
 #### `GET /api/payroll/:id/export` `[E]`
-Xuất file PDF hoặc Excel. Query: `?format=pdf|excel`
+Export PDF or Excel file. Query: `?format=pdf|excel`
 
 ---
 
 ### 2.6 Notification Module — `/api/notifications`
 
 #### `GET /api/notifications` `[S|E]`
-Danh sách thông báo của user. Query: `?is_read=false&limit=20`
+User's notification list. Query: `?is_read=false&limit=20`
 
 #### `PATCH /api/notifications/:id/read` `[S|E]`
-Đánh dấu 1 thông báo đã đọc.
+Mark a single notification as read.
 
 #### `PATCH /api/notifications/read-all` `[S|E]`
-Đánh dấu tất cả đã đọc.
+Mark all notifications as read.
 
 ---
 
 ### 2.7 Report Module — `/api/reports` `[E]`
 
 #### `GET /api/reports/overview`
-Thống kê tổng quan: tổng ca, tổng giờ, chi phí tháng này.
+Overview statistics: total shifts, total hours, cost this month.
 
 #### `GET /api/reports/shifts`
-Thống kê ca theo thời gian. Query: `?from=&to=`
+Shift statistics over time. Query: `?from=&to=`
 
 #### `GET /api/reports/performance`
-Hiệu suất nhân viên: số ca, tỉ lệ đúng giờ, reputation score.
+Employee performance: number of shifts, on-time rate, reputation score.
 
 #### `GET /api/reports/payroll-summary`
-Tổng chi phí nhân sự theo tháng.
+Total labor cost by month.
 
 ---
 
 ### 2.8 Rating Module — `/api/ratings`
 
 #### `POST /api/ratings` `[E]`
-Employer đánh giá student sau khi ca kết thúc.
+Employer rates a student after the shift ends.
 ```json
 // Request
 {
   "shift_id": "uuid",
   "student_id": "uuid",
   "score": 4,          // 1–5
-  "comment": "Nhân viên làm việc tốt, đúng giờ"
+  "comment": "Employee performed well and was on time"
 }
 
 // Response 201
 { "rating": { "id": "uuid", "score": 4, "created_at": "..." } }
 
-// Error 400: nếu ca chưa completed
-{ "error": "SHIFT_NOT_COMPLETED", "message": "Chỉ được đánh giá sau khi ca kết thúc" }
-// Error 409: nếu đã đánh giá rồi
-{ "error": "ALREADY_RATED", "message": "Bạn đã đánh giá nhân viên này cho ca làm này" }
+// Error 400: shift not yet completed
+{ "error": "SHIFT_NOT_COMPLETED", "message": "You can only rate after the shift ends" }
+// Error 409: already rated
+{ "error": "ALREADY_RATED", "message": "You have already rated this employee for this shift" }
 ```
-> **Side effect**: Tự động cập nhật reputation_score của student:
+> **Side effect**: Automatically updates the student's reputation_score:
 > - score 4–5: +5.0 (good_review event)
-> - score 3: không thay đổi
+> - score 3: no change
 > - score 1–2: -8.0 (bad_review event)
 
 #### `GET /api/ratings/student/:student_id` `[E|S]`
-Xem lịch sử đánh giá của 1 student. Query: `?page=1&limit=10`
+View rating history for a student. Query: `?page=1&limit=10`
 
 ---
 
 ### 2.9 Admin Module — `/api/admin` `[A]`
 
 #### `GET /api/admin/users`
-Danh sách tất cả user. Filter: `?role=&is_active=&page=`
+List all users. Filter: `?role=&is_active=&page=`
 
 #### `PATCH /api/admin/users/:id/toggle-status`
-Khoá / mở khoá tài khoản.
+Lock / unlock an account.
 
 #### `GET /api/admin/jobs`
-Tất cả job trong hệ thống.
+All jobs in the system.
 
 #### `GET /api/admin/stats`
-Thống kê hệ thống: tổng user, tổng job, tổng ca, tổng doanh thu.
+System statistics: total users, total jobs, total shifts, total revenue.
 
 #### `POST /api/admin/employers`
-Admin tạo employer account mới. Body: `{ email, password, company_name, address?, description? }`
+Admin creates a new employer account. Body: `{ email, password, company_name, address?, description? }`
 Response `201`: `{ user, employer_profile, temp_password }`
 
 #### `GET /api/admin/employers/:id/shifts`
-Xem tất cả shifts của 1 employer cụ thể. Filter: `?status=&page=`
+View all shifts for a specific employer. Filter: `?status=&page=`
 
 #### `GET /api/admin/employers/:id/payroll`
-Xem tất cả payroll records của 1 employer cụ thể. Filter: `?month=&year=`
+View all payroll records for a specific employer. Filter: `?month=&year=`
 
 #### `PATCH /api/admin/payroll/:id`
-Admin override payroll record (điều chỉnh thủ công). Body: `{ total_amount?, note? }`
+Admin overrides a payroll record (manual adjustment). Body: `{ total_amount?, note? }`
 Response `200`: updated payroll record.
 
 ---
@@ -423,23 +423,23 @@ Response `200`: updated payroll record.
 
 ### `authMiddleware.ts`
 ```typescript
-// Verify JWT từ Authorization header
-// Gắn req.user = { id, email, role }
-// Trả 401 nếu token không hợp lệ hoặc hết hạn
+// Verify JWT from Authorization header
+// Attach req.user = { id, email, role }
+// Return 401 if token is invalid or expired
 ```
 
 ### `roleGuard.ts`
 ```typescript
-// roleGuard('employer') → 403 nếu req.user.role !== 'employer'
-// roleGuard('student', 'employer') → cho phép nhiều role
+// roleGuard('employer') → 403 if req.user.role !== 'employer'
+// roleGuard('student', 'employer') → allows multiple roles
 ```
 
 ### `errorHandler.ts`
 ```typescript
-// Global error handler — chuẩn hoá response lỗi:
+// Global error handler — normalizes error response:
 {
   "error": "ERROR_CODE",
-  "message": "Mô tả lỗi",
+  "message": "Error description",
   "details": {}   // optional, Zod validation errors
 }
 ```
@@ -447,7 +447,7 @@ Response `200`: updated payroll record.
 ### `validate.ts`
 ```typescript
 // Zod schema validation middleware
-// validate(schema) → 400 nếu body/query/params không hợp lệ
+// validate(schema) → 400 if body/query/params are invalid
 ```
 
 ---
@@ -455,7 +455,7 @@ Response `200`: updated payroll record.
 ## 4. Socket.io Events (Server)
 
 ```typescript
-// Khi user connect: join room 'user_<user_id>'
+// When user connects: join room 'user_<user_id>'
 io.on('connection', (socket) => {
   socket.on('join:room', ({ room }) => socket.join(room))
   socket.on('join:shift', ({ shift_id }) => socket.join(`shift_${shift_id}`))
@@ -467,133 +467,218 @@ function notify(userId: string, event: string, data: object) {
 }
 
 // Events emitted:
-// notification:new    → khi tạo notification mới
-// attendance:update   → khi student checkin/out
-// shift:registered    → khi student đăng ký ca
-// shift:approved      → khi employer duyệt ca
-// payroll:updated     → khi tính lương xong
-// shift:reminder      → từ background job
+// notification:new    → when a new notification is created
+// attendance:update   → when student checks in/out
+// shift:registered    → when student registers for a shift
+// shift:approved      → when employer approves a shift
+// payroll:updated     → when payroll calculation completes
+// shift:reminder      → from background job
 ```
 
 ---
 
 ## 5. Background Jobs
 
-### `weeklyScheduler.ts` (thay thế autoAssignShift.ts)
-- **Schedule**: `0 0 * * 1` — 0:00 sáng thứ Hai hàng tuần
-- **Registration deadline**: Chủ nhật 12:00 trưa (hệ thống không chặn đăng ký sau deadline, nhưng scheduler chỉ xử lý registrations được tạo trước deadline)
+### `weeklyScheduler.ts` (replaces autoAssignShift.ts)
+- **Schedule**: `0 0 * * 1` — Monday 00:00 every week
+- **Registration deadline**: Sunday 12:00 noon (system does not block registrations after deadline, but the scheduler only processes registrations created before the deadline)
 - **Logic**:
-  1. Query tất cả `shift_registrations` có status=`pending` với `shift.start_time` trong tuần tới
-  2. Nhóm theo `shift_id`
-  3. Với mỗi shift: sort students theo `reputation_score DESC, registered_at ASC`
-  4. Lấy tối đa `shift.max_workers` students đầu tiên, kiểm tra conflict chéo giữa các ca
-  5. Approved students: `status=approved`, tăng `shift.current_workers`
-  6. Rejected students (quá max hoặc conflict): `status=rejected`
-  7. Gửi notification cho TẤT CẢ students (approved và rejected)
-  8. Log kết quả scheduling
+  1. Query all `shift_registrations` with status=`pending` where `shift.start_time` is in the coming week
+  2. Group by `shift_id`
+  3. For each shift: sort students by `reputation_score DESC, registered_at ASC`
+  4. Take up to `shift.max_workers` top students, check for cross-shift conflicts
+  5. Approved students: `status=approved`, increment `shift.current_workers`
+  6. Rejected students (exceeds max or conflict): `status=rejected`
+  7. Send notification to ALL students (approved and rejected)
+  8. Log scheduling results
 
-### `lowRegistrationAlert.ts` (tích hợp vào `sendReminders.ts`)
-- **Schedule**: `0 11 * * 0` — 11:00 sáng Chủ nhật (1 giờ trước deadline)
+### `lowRegistrationAlert.ts` (integrated into `sendReminders.ts`)
+- **Schedule**: `0 11 * * 0` — Sunday 11:00 AM (1 hour before deadline)
 - **Logic**:
-  1. Query tất cả shifts của tuần tới có `current_workers = 0` (chưa có ai được approve)
-  2. Với mỗi shift đó, đếm pending registrations
-  3. Nếu `pending_count < max_workers` → emit `shift:low_registration` cho employer
-  4. Employer có 1 giờ để manually assign trước khi deadline 12:00 trưa
+  1. Query all shifts for the coming week with `current_workers = 0` (no one approved yet)
+  2. For each such shift, count pending registrations
+  3. If `pending_count < max_workers` → emit `shift:low_registration` to employer
+  4. Employer has 1 hour to manually assign before the 12:00 noon deadline
 
 ### `autoDetectAbsent.ts`
-- **Schedule**: Chạy mỗi 30 phút (tích hợp vào `sendReminders.ts`)
+- **Schedule**: Every 30 minutes (integrated into `sendReminders.ts`)
 - **Logic**:
-  1. Query shifts có `start_time <= NOW() - 30 minutes` và `status=ongoing`
-  2. Tìm shift_registrations `status=approved` nhưng chưa có attendance record
-  3. Tạo attendance record với `status=absent`
-  4. Trừ -10.0 reputation, gửi notification cho employer
+  1. Query shifts with `start_time <= NOW() - 30 minutes` and `status=ongoing`
+  2. Find shift_registrations with `status=approved` but no attendance record
+  3. Create attendance record with `status=absent`
+  4. Deduct -10.0 reputation, send notification to employer
 
 ### `autoCalcPayroll.ts`
-- **Trigger**: Gọi ngay sau khi shift hoàn thành (checkout hoặc `autoDetectAbsent` marks absent) — **real-time per shift**, không phải batch hàng ngày
-- **Schedule fallback**: `CRON_PAYROLL_SCHEDULE` (mặc định 00:00 hàng ngày) — catch-up cho bất kỳ attendance nào bị bỏ sót
+- **Trigger**: Called immediately after shift completes (checkout or `autoDetectAbsent` marks absent) — **real-time per shift**, not a daily batch
+- **Fallback schedule**: `CRON_PAYROLL_SCHEDULE` (default 00:00 daily) — catch-up for any attendance missed
 - **Logic**:
-  1. Tìm tất cả attendance `status != pending` chưa có payroll_item
-  2. Tính `base_pay`, `bonus`, `penalty` theo công thức (xem system-design)
-  3. Tạo `payroll_item` cho từng attendance record ngay lập tức (cộng dồn)
-  4. Tạo/cập nhật `payroll` record (tổng kết theo kỳ tháng) — `total_amount` = tổng tất cả payroll_items trong kỳ
-  5. Emit `payroll:updated` cho student
+  1. Find all attendance records with `status != pending` that have no payroll_item yet
+  2. Calculate `base_pay`, `bonus`, `penalty` using the formula (see system-design)
+  3. Create `payroll_item` for each attendance record immediately (accumulated)
+  4. Create/update `payroll` record (monthly summary) — `total_amount` = sum of all payroll_items in the period
+  5. Emit `payroll:updated` to student
 
 ### `sendReminders.ts`
-- **Schedule**: `CRON_REMINDER_SCHEDULE` (mặc định mỗi 30 phút)
+- **Schedule**: `CRON_REMINDER_SCHEDULE` (default every 30 minutes)
 - **Logic**:
-  1. Query shifts bắt đầu trong vòng 1 giờ tới
-  2. Lấy danh sách student đã được duyệt
-  3. Tạo notification + emit `shift:reminder`
+  1. Query shifts starting within the next hour
+  2. Get list of approved students
+  3. Create notification + emit `shift:reminder`
 
 ---
 
 ## 6. Business Logic Rules
 
-### Conflict Detection (chỉ áp dụng trong Scheduler, KHÔNG áp dụng khi đăng ký)
+### Conflict Detection (only in Scheduler, NOT at registration time)
 ```
-Scheduler giải quyết conflict khi chạy lúc 0:00 thứ Hai:
-  Với mỗi student, sau khi approve một ca:
-    Reject tất cả pending registrations khác của student đó nếu:
+Scheduler resolves conflicts when running at Monday 00:00:
+  For each student, after approving a shift:
+    Reject all other pending registrations for that student if:
       (approved_shift.start_time < other_shift.end_time)
       AND
       (approved_shift.end_time > other_shift.start_time)
-    → Ưu tiên ca có reputation phù hợp hơn, sau đó ca đăng ký sớm hơn
+    → Prioritize the shift with better reputation fit, then earlier registration
 
-> Tại thời điểm student POST /shifts/:id/register: KHÔNG check conflict.
-> Student được phép đăng ký nhiều ca trùng giờ.
+> At the time student calls POST /shifts/:id/register: NO conflict check.
+> Students are allowed to register for multiple overlapping shifts.
 ```
 
 ### Timezone
 ```
-Tất cả TIMESTAMPTZ trong DB lưu theo UTC+7 (Asia/Ho_Chi_Minh).
-Server và frontend đều dùng UTC+7.
-Không cần convert timezone — lưu gì hiển thị vậy.
+All DATETIME values in DB are stored directly in UTC+7 (Asia/Ho_Chi_Minh).
+Server and frontend both use UTC+7. No timezone conversion needed — stored as-is.
+mysql2 driver is configured with timezone: '+07:00' to ensure correct
+JavaScript Date ↔ MySQL DATETIME conversion. See src/config/database.ts.
 ```
 
 ### Late Detection
 ```
 check_in_time > shift.start_time + 5 minutes → status = 'late'
-late_minutes = EXTRACT(EPOCH FROM (check_in_time - shift.start_time)) / 60
+late_minutes = GREATEST(0, TIMESTAMPDIFF(MINUTE, shift.start_time, check_in_time))
 ```
 
 ### Absent Detection
 ```
-Background job (sau 30 phút kể từ shift.start_time):
+Background job (30 minutes after shift.start_time):
   attendance.check_in_time IS NULL → status = 'absent'
-  → Trừ reputation, gửi notification cho employer
+  → Deduct reputation, send notification to employer
 ```
 
 ### hours_worked Calculation
-```
-hours_worked = EXTRACT(EPOCH FROM (check_out_time - check_in_time)) / 3600
-             (capped tại shift duration nếu check_out_time > shift.end_time)
+```sql
+-- Calculate hours_worked, capped at shift duration:
+hours_worked = LEAST(
+  TIMESTAMPDIFF(SECOND, check_in_time, check_out_time) / 3600,
+  TIMESTAMPDIFF(SECOND, shift.start_time, shift.end_time) / 3600
+)
+-- If student checks out later than shift.end_time → only count up to shift.end_time
+-- If student checks out on time or early → use actual time
 ```
 
-### Shift Status Transitions (Tự động hoàn toàn)
+### MySQL Query Patterns
+
+> These patterns are required for all service files. Driver: `mysql2/promise`.
+
+**Pattern A — Connection pool** (`src/config/database.ts`):
+```typescript
+import mysql from 'mysql2/promise'
+const pool = mysql.createPool({
+  host: process.env.DB_HOST || 'localhost',
+  port: Number(process.env.DB_PORT) || 3306,
+  database: process.env.DB_NAME || 'smart_workforce',
+  user: process.env.DB_USER || 'root',
+  password: process.env.DB_PASSWORD || '',
+  waitForConnections: true,
+  connectionLimit: 10,
+  timezone: '+07:00',  // required for UTC+7
+})
+export default pool
 ```
-open    → full      : Khi shift.current_workers == shift.max_workers (sau mỗi approval)
-full    → open      : Khi student hủy đăng ký approved (current_workers giảm < max_workers)
-open/full → ongoing : Background job lúc shift.start_time (mỗi phút check)
-ongoing → completed : Background job lúc shift.end_time (mỗi phút check)
-any     → cancelled : Employer gọi DELETE /api/shifts/:id — tự động notify students
+
+**Pattern B — SELECT result** (mysql2 returns tuple `[rows, fields]`, not `{ rows }`):
+```typescript
+const [rows] = await pool.query('SELECT * FROM users WHERE id = ?', [id])
+const user = (rows as any[])[0]
+if (!user) throw new Error('USER_NOT_FOUND')
+```
+
+**Pattern C — INSERT with UUID** (no `RETURNING` — MySQL does not support it):
+```typescript
+import { v4 as uuidv4 } from 'uuid'
+
+const id = uuidv4()  // generate UUID in TypeScript BEFORE INSERT
+await pool.query(
+  'INSERT INTO users (id, email, full_name, role) VALUES (?, ?, ?, ?)',
+  [id, email, fullName, role]
+)
+// id is already known — no need to re-query
+```
+
+**Pattern D — UPDATE with JOIN** (MySQL does not support `UPDATE ... FROM` like PostgreSQL):
+```sql
+-- MySQL: use UPDATE ... JOIN instead of UPDATE ... FROM
+UPDATE attendance a
+JOIN shifts s ON a.shift_id = s.id
+SET a.hours_worked = TIMESTAMPDIFF(SECOND, a.check_in_time, ?) / 3600,
+    a.early_minutes = GREATEST(0, TIMESTAMPDIFF(MINUTE, ?, s.end_time))
+WHERE a.id = ?
+```
+
+**Pattern E — Conflict detection** (MySQL has no `OVERLAPS` operator):
+```sql
+-- Manual overlap check:
+WHERE NOT (s.end_time <= ? OR s.start_time >= ?)
+  AND sr.student_id = ?
+  AND sr.status IN ('pending', 'approved')
+-- Params: [proposedEndTime, proposedStartTime, studentId]
+```
+
+**Pattern F — Unique constraint error** (MySQL error code differs from PostgreSQL):
+```typescript
+// PostgreSQL: err.code === '23505'
+// MySQL:
+if ((err as any).code === 'ER_DUP_ENTRY') {
+  return res.status(409).json({ error: 'ALREADY_REGISTERED' })
+}
+```
+
+**Pattern G — JSON array column** (`skills`, `required_skills`):
+```typescript
+// Insert: serialize array → JSON string
+await pool.query('UPDATE student_profiles SET skills = ? WHERE user_id = ?',
+  [JSON.stringify(skills), userId])
+
+// Read: mysql2 auto-parses JSON columns, but a defensive check is still needed:
+const skills: string[] = typeof profile.skills === 'string'
+  ? JSON.parse(profile.skills)
+  : profile.skills ?? []
+```
+
+### Shift Status Transitions (fully automatic)
+```
+open    → full      : When shift.current_workers == shift.max_workers (after each approval)
+full    → open      : When student cancels an approved registration (current_workers drops below max_workers)
+open/full → ongoing : Background job at shift.start_time (checks every minute)
+ongoing → completed : Background job at shift.end_time (checks every minute)
+any     → cancelled : Employer calls DELETE /api/shifts/:id — automatically notifies students
 ```
 
 ### Payroll total_pay Clamp
 ```
 total_pay = GREATEST(0, base_pay + bonus - penalty)
--- Không cho phép total_pay âm. Nếu penalty > base_pay + bonus → total_pay = 0
+-- total_pay cannot be negative. If penalty > base_pay + bonus → total_pay = 0
 ```
 
 ### Employer Cancel Shift
 ```
-Khi employer DELETE /shifts/:id:
-  - Tất cả shift_registrations status=approved/pending → cancelled
-  - Student KHÔNG bị trừ reputation (employer là người hủy)
-  - Gửi notification cho tất cả student đã đăng ký
+When employer calls DELETE /shifts/:id:
+  - All shift_registrations with status=approved/pending → cancelled
+  - Students are NOT penalized in reputation (employer cancelled)
+  - Notification sent to all registered students
 ```
 
 ### Health Check
 ```
 GET /api/health → 200 { "status": "ok", "db": "connected", "uptime": 12345 }
-                → 503 { "status": "error", "db": "disconnected" } nếu DB không kết nối được
+                → 503 { "status": "error", "db": "disconnected" } if DB is unreachable
 ```

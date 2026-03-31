@@ -4,49 +4,49 @@
 ## Role
 
 **Persona**: QA Engineer & Test Architect
-**Primary Focus**: Testing strategy, đặc tả test cases, định nghĩa seed data, và coverage targets trên 4 testing layers.
-**Perspective**: Tests là verification layer cho mọi contract được định nghĩa trong các file docs khác. Khi làm việc trong file này, trace mỗi test case về nguồn gốc: một business rule trong `01-system-design.md`, một API contract trong `03-backend.md`, một component behavior trong `04-frontend.md`, hoặc một user flow kết hợp cả ba. Test không thể trace về spec đã document hoặc là thừa, hoặc là spec đang thiếu.
+**Primary Focus**: Testing strategy, test case specification, seed data definitions, and coverage targets across 4 testing layers.
+**Perspective**: Tests are the verification layer for every contract defined in the other docs files. When working in this file, trace each test case back to its source: a business rule in `01-system-design.md`, an API contract in `03-backend.md`, a component behavior in `04-frontend.md`, or a user flow combining all three. A test that cannot be traced to a documented spec is either redundant or signals a gap in the spec.
 
 ### Responsibilities
-- Định nghĩa four-layer test strategy và lựa chọn tooling
-- Đặc tả unit test cases cho tất cả backend utility functions (payrollCalc, conflictCheck, reputationCalc)
-- Đặc tả integration test cases cho mỗi API endpoint (happy path + primary error cases)
-- Đặc tả frontend unit test cases cho components và Zustand stores
-- Định nghĩa E2E test scenarios (happy paths only, full actor flows)
-- Duy trì seed data definitions và thông tin đăng nhập test account cố định
-- Định nghĩa và enforce coverage targets theo từng layer
+- Define the four-layer test strategy and tooling selection
+- Specify unit test cases for all backend utility functions (payrollCalc, conflictCheck, reputationCalc)
+- Specify integration test cases for each API endpoint (happy path + primary error cases)
+- Specify frontend unit test cases for components and Zustand stores
+- Define E2E test scenarios (happy paths only, full actor flows)
+- Maintain seed data definitions and fixed test account credentials
+- Define and enforce coverage targets by layer
 
 ### Cross-Role Awareness
-| Khi bạn làm điều này... | Tham chiếu file này | Vì... |
-|--------------------------|---------------------|-------|
-| Viết unit test assertions với số cụ thể | `docs/01-system-design.md` §6-7 | Reputation delta values và payroll formula được định nghĩa chuẩn tắc ở đó |
-| Viết integration tests cho endpoint | `docs/03-backend.md` §2 | Request shape, expected response, và error codes được định nghĩa ở đó |
-| Viết frontend component unit tests | `docs/04-frontend.md` §3 | Component props, rendered states, và callback expectations được định nghĩa ở đó |
-| Viết E2E test steps | `docs/04-frontend.md` §7 | UX flows định nghĩa sequence bước chính xác; E2E tests phải khớp |
-| Thêm seed data cho bảng mới | `docs/01-system-design.md` §4 | Table schema và valid enum values được định nghĩa ở đó |
-| Thêm seed data cho bảng mới | `docs/02-project-init.md` §9 | Thứ tự migration file xác định bảng nào tồn tại khi seed chạy |
-| Tăng coverage targets | `docs/03-backend.md` | Endpoint mới không có integration tests làm giảm actual coverage dưới target |
+| When you do this... | Reference this file | Because... |
+|---------------------|---------------------|------------|
+| Write unit test assertions with specific numbers | `docs/01-system-design.md` §6-7 | Reputation delta values and payroll formula are canonically defined there |
+| Write integration tests for an endpoint | `docs/03-backend.md` §2 | Request shape, expected response, and error codes are defined there |
+| Write frontend component unit tests | `docs/04-frontend.md` §3 | Component props, rendered states, and callback expectations are defined there |
+| Write E2E test steps | `docs/04-frontend.md` §7 | UX flows define the exact step sequence; E2E tests must match |
+| Add seed data for a new table | `docs/01-system-design.md` §4 | Table schema and valid enum values are defined there |
+| Add seed data for a new table | `docs/02-project-init.md` §9 | Migration file order determines which tables exist when seed runs |
+| Increase coverage targets | `docs/03-backend.md` | New endpoints without integration tests lower actual coverage below target |
 
 ### Files to Consult First
-- `docs/01-system-design.md` — cho giá trị constant chính xác để assert trong unit tests
-- `docs/03-backend.md` — cho API contract mà mỗi integration test đang verify
-- `docs/04-frontend.md` — cho component và UX flow mà mỗi frontend test đang cover
+- `docs/01-system-design.md` — for exact constant values to assert in unit tests
+- `docs/03-backend.md` — for the API contract each integration test is verifying
+- `docs/04-frontend.md` — for the component and UX flow each frontend test is covering
 
 ---
 
 ## 1. Testing Strategy
 
-| Layer | Tool | Mục tiêu |
-|-------|------|----------|
+| Layer | Tool | Goal |
+|-------|------|------|
 | Unit (Backend) | Jest | Utility functions: payroll calc, conflict check, reputation |
-| Integration (Backend) | Jest + Supertest | API endpoints với DB thật (test DB) |
+| Integration (Backend) | Jest + Supertest | API endpoints against a real test DB |
 | Unit (Frontend) | Vitest + RTL | Components, hooks, Zustand stores |
-| E2E | Playwright | Happy path flows cho từng actor |
+| E2E | Playwright | Happy path flows for each actor |
 
-### Nguyên tắc
-- Mỗi module backend cần ít nhất integration tests cho happy path + error cases chính
-- Các utility functions (calc, conflict) phải có unit tests đầy đủ vì là business logic quan trọng
-- E2E chỉ cover happy paths, không test edge cases
+### Principles
+- Each backend module needs at least integration tests for the happy path + main error cases
+- Utility functions (calc, conflict) must have thorough unit tests as they are critical business logic
+- E2E covers happy paths only, not edge cases
 
 ---
 
@@ -55,61 +55,61 @@
 ### `payrollCalc.test.ts`
 ```typescript
 describe('calculatePay', () => {
-  it('đủ ca đúng giờ → total_pay = shift_hours × hourly_rate (không trừ gì)')
-  it('đi muộn 30 phút → trừ đúng: scheduled_pay - 0.5h × rate')
-  it('về sớm 15 phút → trừ đúng: scheduled_pay - 0.25h × rate')
-  it('vừa muộn vừa về sớm → trừ cả 2: scheduled_pay - (late + early)/60 × rate')
-  it('không cho hours_worked > shift_duration')
+  it('on time and full shift → total_pay = shift_hours × hourly_rate (no deductions)')
+  it('late 30 minutes → correct deduction: scheduled_pay - 0.5h × rate')
+  it('left 15 minutes early → correct deduction: scheduled_pay - 0.25h × rate')
+  it('both late and early → deduct both: scheduled_pay - (late + early)/60 × rate')
+  it('does not allow hours_worked > shift_duration')
 })
 ```
 
-### ~~`conflictCheck.test.ts`~~ — ĐÃ XÓA
-> Conflict check không còn xảy ra tại layer đăng ký. Xem `weeklyScheduler.test.ts` cho conflict resolution logic.
+### ~~`conflictCheck.test.ts`~~ — REMOVED
+> Conflict check no longer occurs at the registration layer. See `weeklyScheduler.test.ts` for conflict resolution logic.
 
 ### `weeklyScheduler.test.ts`
 ```typescript
 describe('weeklyScheduler', () => {
-  it('approved student có reputation cao nhất khi ca quá max_workers')
-  it('rejected student nếu quá max_workers dù reputation đủ')
-  it('tiebreaker: cùng reputation → ưu tiên đăng ký sớm hơn (registered_at ASC)')
-  it('không approve student có conflict ca với ca đã được approve khác trong cùng lần chạy')
-  it('bỏ qua registrations được tạo sau deadline Chủ nhật 12:00 trưa')
-  it('bỏ qua shifts đã có current_workers == max_workers (đã đủ người từ manual approve)')
-  it('gửi notification cho tất cả students (approved và rejected)')
-  it('cập nhật shift.current_workers sau khi chạy')
+  it('approves student with highest reputation when shift exceeds max_workers')
+  it('rejects student if max_workers is exceeded even if reputation is sufficient')
+  it('tiebreaker: same reputation → prefer earlier registration (registered_at ASC)')
+  it('does not approve student with a shift conflict with another already-approved shift in the same run')
+  it('ignores registrations created after Sunday 12:00 noon deadline')
+  it('ignores shifts already at current_workers == max_workers (already filled by manual approval)')
+  it('sends notification to all students (approved and rejected)')
+  it('updates shift.current_workers after running')
 })
 ```
 
 ### Integration test: `POST /shifts/:id/register`
 ```typescript
 describe('registerShift', () => {
-  it('student đăng ký 2 ca trùng giờ → cả 2 đều status=pending (không bị block)')
-  it('student đăng ký ca đã đăng ký rồi → 409 ALREADY_REGISTERED')
-  it('student đăng ký sau deadline 12:00 trưa Chủ nhật → 400 REGISTRATION_CLOSED')
+  it('student registers for 2 overlapping shifts → both have status=pending (not blocked)')
+  it('student registers for a shift they already registered → 409 ALREADY_REGISTERED')
+  it('student registers after Sunday 12:00 noon deadline → 400 REGISTRATION_CLOSED')
 })
 ```
 
 ### `cancelShift.test.ts`
 ```typescript
 describe('cancelShiftRegistration', () => {
-  it('hủy ≥24h trước ca → status=cancelled, reputation không thay đổi')
-  it('hủy <24h trước ca → status=cancelled, reputation -7.0')
-  it('hủy approved registration → current_workers giảm 1, slot mở lại')
-  it('employer hủy ca → tất cả students cancelled, không ai mất reputation')
+  it('cancel ≥24h before shift → status=cancelled, reputation unchanged')
+  it('cancel <24h before shift → status=cancelled, reputation -7.0')
+  it('cancel approved registration → current_workers decreases by 1, slot reopens')
+  it('employer cancels shift → all students cancelled, no reputation penalty')
 })
 ```
 
 ### `reputationCalc.test.ts`
 ```typescript
 describe('calculateReputationDelta', () => {
-  it('cộng +2 khi check-in đúng giờ')
-  it('cộng +3 khi hoàn thành ca')
-  it('trừ -2 khi trễ 1–15 phút')
-  it('trừ -5 khi trễ > 15 phút')
-  it('trừ -10 khi vắng không báo')
-  it('trừ -7 khi huỷ ca trong vòng 24h')
-  it('không cho score xuống dưới 0')
-  it('không cho score vượt quá 200')
+  it('adds +2 for on-time check-in')
+  it('adds +3 for completing full shift')
+  it('deducts -2 for late 1–15 minutes')
+  it('deducts -5 for late > 15 minutes')
+  it('deducts -10 for no-show')
+  it('deducts -7 for cancellation within 24h')
+  it('does not let score drop below 0')
+  it('does not let score exceed 200')
 })
 ```
 
@@ -117,77 +117,77 @@ describe('calculateReputationDelta', () => {
 
 ## 3. Backend — Integration Tests (Supertest)
 
-Mỗi test file dùng DB test riêng, seed trước khi chạy và truncate sau khi xong.
+Each test file uses a dedicated test DB, seeded before running and truncated after.
 
 ### `auth.test.ts`
 ```typescript
 describe('POST /api/auth/register', () => {
-  it('201 — đăng ký student thành công, trả về token')
-  it('201 — đăng ký employer thành công')
-  it('400 — thiếu required fields')
-  it('409 — email đã tồn tại')
+  it('201 — student registration successful, returns token')
+  it('201 — employer registration successful')
+  it('400 — missing required fields')
+  it('409 — email already exists')
 })
 
 describe('POST /api/auth/login', () => {
-  it('200 — login thành công, trả về token + user info')
-  it('401 — sai password')
-  it('404 — email không tồn tại')
+  it('200 — login successful, returns token + user info')
+  it('401 — wrong password')
+  it('404 — email does not exist')
 })
 
 describe('GET /api/auth/me', () => {
-  it('200 — trả về thông tin user + profile')
-  it('401 — không có token')
-  it('401 — token hết hạn')
+  it('200 — returns user info + profile')
+  it('401 — no token')
+  it('401 — expired token')
 })
 ```
 
 ### `shifts.test.ts`
 ```typescript
 describe('POST /api/shifts/:id/register', () => {
-  it('201 — đăng ký ca thành công')
-  it('409 — conflict với ca đã đăng ký')
-  it('409 — ca đã full')
-  it('403 — employer không được đăng ký ca')
-  it('404 — shift không tồn tại')
+  it('201 — shift registration successful')
+  it('409 — conflict with an already-registered shift')
+  it('409 — shift is full')
+  it('403 — employer cannot register for a shift')
+  it('404 — shift does not exist')
 })
 
 describe('PATCH /api/shifts/:id/registrations/:reg_id', () => {
-  it('200 — duyệt đăng ký, current_workers tăng 1')
-  it('200 — từ chối đăng ký')
-  it('403 — student không được duyệt')
-  it('403 — employer khác không được duyệt shift của người khác')
+  it('200 — approve registration, current_workers increases by 1')
+  it('200 — reject registration')
+  it('403 — student cannot approve')
+  it('403 — another employer cannot approve a shift they do not own')
 })
 ```
 
 ### `attendance.test.ts`
 ```typescript
 describe('POST /api/attendance/checkin', () => {
-  it('201 — checkin đúng giờ, status=on_time')
-  it('201 — checkin trễ 10 phút, status=late, late_minutes=10')
-  it('400 — chưa được duyệt vào ca này')
-  it('409 — đã checkin rồi')
+  it('201 — on-time check-in, status=on_time')
+  it('201 — check-in 10 minutes late, status=late, late_minutes=10')
+  it('400 — not approved for this shift')
+  it('409 — already checked in')
 })
 
 describe('POST /api/attendance/checkout', () => {
-  it('200 — checkout thành công, tính đúng hours_worked')
-  it('400 — chưa checkin')
+  it('200 — checkout successful, hours_worked calculated correctly')
+  it('400 — not yet checked in')
 })
 
 describe('PATCH /api/attendance/:id/force-complete', () => {
-  it('200 — employer force-checkout thành công, hours_worked và status được tính đúng')
-  it('403 — đã force-checkout student này 3 lần trong tháng → FORCE_CHECKOUT_LIMIT_EXCEEDED')
-  it('400 — ca chưa kết thúc → SHIFT_NOT_ENDED')
-  it('409 — student đã checkout rồi → ALREADY_COMPLETED')
-  it('403 — employer không phải owner của shift → FORBIDDEN')
+  it('200 — employer force-checkout successful, hours_worked and status calculated correctly')
+  it('403 — already force-checked out this student 3 times this month → FORCE_CHECKOUT_LIMIT_EXCEEDED')
+  it('400 — shift has not ended → SHIFT_NOT_ENDED')
+  it('409 — student already checked out → ALREADY_COMPLETED')
+  it('403 — employer is not the owner of the shift → FORBIDDEN')
 })
 ```
 
 ### `payroll.test.ts`
 ```typescript
 describe('POST /api/payroll/calculate', () => {
-  it('200 — tính đúng tổng lương cho nhiều ca trong kỳ')
-  it('200 — bao gồm các ca đi muộn và về sớm, tính đúng giờ thực tế')
-  it('403 — student không được kích hoạt tính lương')
+  it('200 — correctly calculates total pay for multiple shifts in a period')
+  it('200 — includes shifts with late/early departures, calculates actual hours correctly')
+  it('403 — student cannot trigger payroll calculation')
 })
 ```
 
@@ -197,41 +197,41 @@ describe('POST /api/payroll/calculate', () => {
 
 ### `Badge.test.tsx`
 ```typescript
-it('hiển thị màu xanh cho status on_time')
-it('hiển thị màu đỏ cho status absent')
-it('hiển thị màu vàng cho status late')
+it('displays green for status on_time')
+it('displays red for status absent')
+it('displays yellow for status late')
 ```
 
 ### `CheckInButton.test.tsx`
 ```typescript
-it('hiển thị nút CHECK IN khi chưa checkin')
-it('hiển thị nút CHECK OUT sau khi checkin')
-it('hiển thị "Không có ca" khi không trong giờ làm')
-it('gọi checkIn() khi click nút')
-it('disabled khi đang loading')
+it('displays CHECK IN button when not yet checked in')
+it('displays CHECK OUT button after check-in')
+it('displays "No active shift" when not within shift hours')
+it('calls checkIn() when button is clicked')
+it('disabled while loading')
 ```
 
 ### `PayrollSummaryCard.test.tsx`
 ```typescript
-it('hiển thị đúng tổng tiền')
-it('hiển thị tổng giờ làm thực tế')
-it('hiển thị hourly rate')
-it('tính đúng total = total_hours × hourly_rate')
+it('displays correct total amount')
+it('displays actual hours worked')
+it('displays hourly rate')
+it('correctly calculates total = total_hours × hourly_rate')
 ```
 
 ### `useAuthStore.test.ts`
 ```typescript
-it('login lưu token và user vào store')
-it('logout xoá token và user')
-it('token được persist qua localStorage')
+it('login saves token and user to store')
+it('logout clears token and user')
+it('token is persisted via localStorage')
 ```
 
 ### `ShiftCalendar.test.tsx`
 ```typescript
-it('render đúng số event theo data')
-it('hiển thị màu vàng cho shift pending')
-it('hiển thị màu xanh cho shift approved')
-it('click vào event gọi onEventClick callback')
+it('renders correct number of events from data')
+it('displays yellow for pending shifts')
+it('displays green for approved shifts')
+it('clicking an event calls onEventClick callback')
 ```
 
 ---
@@ -246,75 +246,75 @@ it('click vào event gọi onEventClick callback')
   use: { screenshot: 'only-on-failure' }
 }
 
-// fixtures/auth.ts — helper đăng nhập trước mỗi test
+// fixtures/auth.ts — login helper used before each test
 ```
 
 ### `student-register-shift.spec.ts`
 ```
-1. Đăng nhập bằng tài khoản student
-2. Vào /student/shifts
-3. Click vào 1 shift open
-4. Click "Đăng ký"
-5. Kiểm tra toast thành công
-6. Kiểm tra badge "Chờ duyệt" xuất hiện
-7. Kiểm tra shift xuất hiện trong calendar
+1. Login with student account
+2. Go to /student/shifts
+3. Click an open shift
+4. Click "Register"
+5. Check success toast
+6. Check "Pending" badge appears
+7. Check shift appears in calendar
 ```
 
 ### `student-checkin.spec.ts`
 ```
-1. Đăng nhập bằng student (có shift được approve, đang trong giờ)
-2. Vào /student/attendance
-3. Nút "CHECK IN" hiển thị
+1. Login with student (has an approved shift currently in progress)
+2. Go to /student/attendance
+3. "CHECK IN" button is visible
 4. Click Check In
-5. Status hiển thị "Đúng giờ"
-6. Nút chuyển thành "CHECK OUT"
+5. Status shows "On time"
+6. Button changes to "CHECK OUT"
 7. Click Check Out
-8. hours_worked hiển thị trong lịch sử
+8. hours_worked appears in history
 ```
 
 ### `employer-approve-shift.spec.ts`
 ```
-1. Đăng nhập employer
-2. Tạo job mới
-3. Tạo shift mới cho job đó
-4. Đăng nhập student (tab mới), đăng ký vào shift
-5. Quay lại employer → vào shift detail
-6. Thấy student trong danh sách pending
-7. Click "Duyệt"
-8. Status chuyển thành "Đã duyệt"
-9. Kiểm tra student nhận thông báo (tab student)
+1. Login as employer
+2. Create a new job
+3. Create a new shift for that job
+4. Login as student (new tab), register for the shift
+5. Return to employer → go to shift detail
+6. Student appears in pending list
+7. Click "Approve"
+8. Status changes to "Approved"
+9. Verify student receives notification (student tab)
 ```
 
 ### `employer-payroll.spec.ts`
 ```
-1. Đăng nhập employer
-2. Vào /employer/payroll
-3. Click "Tính lương" cho kỳ tháng hiện tại
-4. Bảng lương hiển thị đúng nhân viên và số tiền
-5. Click "Xuất PDF"
-6. File PDF được tải xuống
+1. Login as employer
+2. Go to /employer/payroll
+3. Click "Calculate Payroll" for the current month
+4. Payroll table shows correct employees and amounts
+5. Click "Export PDF"
+6. PDF file is downloaded
 ```
 
 ---
 
 ## 6. Test Data / Seed Strategy
 
-### Tài khoản test cố định
+### Fixed test accounts
 ```
 admin@test.com / Admin123!           → role: admin
-employer1@test.com / Employer123!    → role: employer, company: "Quán Cà Phê ABC"
+employer1@test.com / Employer123!    → role: employer, company: "ABC Cafe"
 student1@test.com / Student123!      → role: student, reputation: 120
 student2@test.com / Student123!      → role: student, reputation: 80
 ```
 
-### Seed data bao gồm
-- 1 employer với 2 jobs active
+### Seed data includes
+- 1 employer with 2 active jobs
 - 5 shifts: 2 open, 1 full, 1 completed, 1 cancelled
 - 3 shift registrations: 1 approved, 1 pending, 1 rejected
 - 2 attendance records: 1 on_time, 1 late
-- 1 payroll record với 2 payroll_items
+- 1 payroll record with 2 payroll_items
 
-### Chạy seed
+### Run seed
 ```bash
 cd backend
 npm run seed           # insert all test data
@@ -330,4 +330,4 @@ npm run seed:reset     # truncate + re-seed
 | Utility functions (backend) | ≥ 90% |
 | API endpoints (integration) | ≥ 70% |
 | React components (unit) | ≥ 60% |
-| E2E happy paths | 100% của 4 flows trên |
+| E2E happy paths | 100% of the 4 flows above |

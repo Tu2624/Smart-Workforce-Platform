@@ -8,16 +8,26 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Commands
 
+### First-time setup
+```bash
+cd backend && cp .env.example .env   # fill DB password + JWT secret
+cd frontend && cp .env.example .env
+```
+
 ### Backend (`cd backend`)
 ```bash
 npm run dev          # tsx watch — hot reload at http://localhost:3001
 npm run build        # tsc compile to dist/
-npm run migrate      # run pending DB migrations (node-pg-migrate)
-npm run migrate:down # rollback last migration
-npm run seed         # seed test data (see README for test accounts)
-npm run test         # Jest (runs from backend/tests/)
+npm run migrate      # run pending DB migrations (db-migrate up)
+npm run migrate:down # rollback last migration (db-migrate down, 1 at a time)
+npm run seed         # seed test data
+npm run test         # Jest (runs from backend/tests/, always --runInBand)
 npm run test:watch   # Jest watch mode
 npm run lint         # ESLint on src/
+
+# Run a single test file
+npx jest tests/payrollCalc.test.ts
+npx jest tests/attendance.test.ts --verbose
 ```
 
 ### Frontend (`cd frontend`)
@@ -27,11 +37,15 @@ npm run build        # tsc + vite build
 npm run test         # Vitest
 npm run test:e2e     # Playwright e2e
 npm run lint         # ESLint on src/
+npm run format       # Prettier (semi:false, single quotes, trailing comma)
+
+# Run a single test file
+npx vitest run src/components/Badge.test.tsx
 ```
 
 ### Docker (full stack)
 ```bash
-docker-compose up -d   # starts postgres + backend (auto-migrates) + frontend
+docker-compose up -d   # starts mysql + backend (auto-migrates) + frontend
 ```
 
 ## Architecture
@@ -43,7 +57,7 @@ docker-compose up -d   # starts postgres + backend (auto-migrates) + frontend
 modules/<name>/
   <name>.router.ts      # Express routes with authMiddleware + roleGuard
   <name>.controller.ts  # req/res handling, calls service
-  <name>.service.ts     # business logic + raw pg queries
+  <name>.service.ts     # business logic + raw mysql2 queries
   <name>.schema.ts      # Zod validation schemas
 ```
 
@@ -53,14 +67,14 @@ Modules: `auth`, `job`, `shift`, `attendance`, `payroll`, `notification`, `repor
 
 **Auth flow** — JWT-based. `authMiddleware` verifies Bearer token and attaches `req.user: { id, email, role }`. `roleGuard(...roles)` restricts routes by role. Both are applied per-router, not globally.
 
-**Database** — raw `pg` (no ORM). `src/config/database.ts` exports a pool. Services use `pool.query()` directly. Schema is managed via `node-pg-migrate` files in `migrations/`.
+**Database** — raw `mysql2` (no ORM). `src/config/database.ts` exports a pool via `mysql2/promise`. Services use `const [rows] = await pool.query(...)` — result is a tuple, not `{rows}`. Schema is managed via `db-migrate` files in `migrations/`.
 
 **Realtime** — Socket.io initialized in `src/config/socket.ts`. Use `notifyUser(userId, event, data)` or `notifyShiftRoom(shiftId, event, data)` from any service. Clients join personal rooms (`user_<id>`) and shift rooms (`shift_<id>`).
 
 **Background jobs** (`src/jobs/`):
-- `autoCalcPayroll.ts` — cron default `0 0 * * *`
-- `sendReminders.ts` — cron default `*/30 * * * *`
-- `autoAssignShift.ts` — called programmatically (not scheduled)
+- `autoAssignShift.ts` — cron `0 0 * * 1` (0:00 thứ Hai); auto-assign pending registrations
+- `autoCalcPayroll.ts` — triggered real-time sau checkout; fallback cron `0 0 * * *`
+- `sendReminders.ts` — cron `*/30 * * * *`; tích hợp `autoDetectAbsent` và `lowRegistrationAlert`
 
 **Utilities** (`src/utils/`):
 - `conflictCheck.ts` — shift overlap detection
@@ -79,12 +93,92 @@ Modules: `auth`, `job`, `shift`, `attendance`, `payroll`, `notification`, `repor
 
 **Env vars** — `VITE_API_URL` (default `/api`) and `VITE_SOCKET_URL` configure the backend connection.
 
+## Documentation System
+
+All specs live in `docs/`. When implementing a feature, **start here before writing code**:
+
+| File | What's authoritative here |
+|------|--------------------------|
+| `docs/01-system-design.md` | DB schema, ERD, Socket.io event map, payroll formula, reputation scoring |
+| `docs/02-project-init.md` | Env vars, migration order (FK dependencies), git workflow, dependency table |
+| `docs/03-backend.md` | REST endpoint specs, middleware behavior, background job logic, business rules |
+| `docs/04-frontend.md` | Route map, Zustand store interfaces, API module functions, socket hooks, UX flows |
+| `docs/05-testing.md` | Unit/integration/E2E test cases, seed data, coverage targets |
+| `docs/06-deployment.md` | Docker config, CI/CD, ENV production checklist, release gates |
+| `docs/07-mysql-guide.md` | MySQL 8 setup, syntax differences from PostgreSQL, charset/UUID/DATETIME guidance |
+| `docs/system-overview.md` | Cross-layer contracts, feature impact matrix, decisions log |
+
+Use the **Feature Impact Matrix** in `docs/system-overview.md` to identify which docs files to update for any given change.
+
+## Four Cross-Layer Contracts
+
+Changes that cross these boundaries require updating **both sides**:
+
+**Contract A — DB enum ↔ all layers**: These enum values appear in DB schema, Zod validation, TypeScript types, Badge color maps, and test assertions simultaneously:
+- `users.role`: `student | employer | admin`
+- `shift_registrations.status`: `pending | approved | rejected | cancelled`
+- `attendance.status`: `on_time | late | absent | incomplete | pending`
+- `payroll.status`: `draft | confirmed | paid`
+
+**Contract B — API endpoint ↔ Frontend API module**: Every endpoint in `docs/03-backend.md` has a direct counterpart in `frontend/src/api/*.ts`. Error shape is always `{ error: "ERROR_CODE", message: "..." }`.
+
+**Contract C — Socket.io event ↔ Frontend hook**: Event names defined in `docs/01-system-design.md §5` are the single source of truth. Events: `notification:new`, `attendance:update`, `shift:registered`, `shift:approved`, `shift:rejected`, `shift:low_registration`, `payroll:updated`, `shift:reminder`.
+
+**Contract D — Business rule constant ↔ test assertion**: Constants defined in `docs/01-system-design.md` must match implementation in utils and test assertions simultaneously.
+
+Payroll formula (Decision #18 — deduction model):
+```
+scheduled_pay   = shift_duration_hours × hourly_rate
+late_deduction  = (late_minutes / 60) × hourly_rate
+early_deduction = (early_minutes / 60) × hourly_rate
+total_pay       = MAX(0, scheduled_pay − late_deduction − early_deduction)
+```
+`incomplete` attendance (no checkout) → `hours_worked = 0`, `total_pay = 0`.
+
+Late detection threshold: 5 min (defined in `03-backend.md`, not `01-system-design.md`).
+
+Reputation deltas (scale 0–200, default 100):
+| Event | Delta |
+|-------|-------|
+| Check-in on time | +2.0 |
+| Complete full shift | +3.0 |
+| Good rating from employer (4–5 stars) | +5.0 |
+| Late 1–15 min | −2.0 |
+| Late >15 min | −5.0 |
+| Absent | −10.0 |
+| Cancel approved shift <24h before start | −7.0 |
+| Bad rating from employer (1–2 stars) | −8.0 |
+
+Score <50 blocks auto-assign eligibility. ≥150 = high priority, 100–149 = normal, 50–99 = low.
+
+See `docs/system-overview.md §9` for the full decisions log (22 confirmed architectural decisions as of 2026-03-27).
+
 ## Key Design Decisions
 
-- **No ORM**: all SQL is written manually in service files. Use parameterized queries (`$1`, `$2`) — never string interpolation.
+- **No ORM**: all SQL is written manually in service files. Use `?` placeholders (mysql2 syntax) — never string interpolation.
+- **UUID before INSERT**: generate UUID with `uuid` package in TypeScript before INSERT; MySQL has no `RETURNING`. `const id = uuidv4()` → pass to INSERT.
 - **Validation at router level**: Zod schemas in `*.schema.ts` are applied as middleware before controllers.
 - **Tests live in `backend/tests/`** (not co-located with source). Jest runs with `--runInBand` to avoid DB connection race conditions.
 - **Migrations are append-only**: never edit existing migration files; always add a new one.
+- **Student creation**: employers create students via `POST /api/employers/employees`; students do NOT self-register. Temp password is returned only in the API response (no email service).
+- **Student belongs to one employer**: `student_profiles.employer_id` is a hard binding — no marketplace/multi-employer model.
+- **No conflict check at registration**: students may register for overlapping shifts freely; the weekly scheduler (Monday 00:00) resolves conflicts using reputation priority. Registration deadline is **Sunday 12:00 noon**.
+- **Payroll is real-time**: a `payroll_item` is created immediately after shift checkout and accumulated into the calendar-month `payroll` record. Students see earnings update after every shift.
+- **Force-checkout**: employer can remotely checkout a student (marks `incomplete`) max **3 times per student per month** to prevent abuse.
+
+## Test Accounts (after `npm run seed`)
+
+| Role | Email | Password |
+|------|-------|----------|
+| Admin | admin@test.com | Admin123! |
+| Employer | employer1@test.com | Employer123! |
+| Student | student1@test.com | Student123! |
+| Student | student2@test.com | Student123! |
+
+## Known Inconsistencies
+
+- `README.md` (and `docs/system-overview.md §1` stack summary) still references driver `pg` — this is outdated. The actual database is **MySQL 8** with driver `mysql2`. Use `?` placeholders (not `$1`), `CHAR(36) DEFAULT (UUID())` primary keys, and `db-migrate` for migrations. See `docs/07-mysql-guide.md` for the full MySQL-vs-PostgreSQL diff.
+- `docs/system-overview.md §5` (Contract D table) lists percentage-based payroll constants (bonus 5%, penalty 2%/5%) that predate Decision #18. The definitive formula is the **deduction model** documented above under Contract D.
 
 ## Skills (Slash Commands)
 

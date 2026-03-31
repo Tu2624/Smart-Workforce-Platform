@@ -4,15 +4,15 @@
 ## Role
 
 **Persona**: Technical Lead (Multi-Role Coordinator)
-**Primary Focus**: Cross-cutting concerns, inter-layer contracts, architectural decisions, và dependency map giữa tất cả docs files.
-**Perspective**: Đây là điểm vào để hiểu toàn bộ hệ thống. Technical Lead nhận thức đồng thời tất cả roles: khi nghĩ về DB schema change, thấy ngay API contract, TypeScript types, test assertions, và deployment implications. Khi làm bất kỳ feature nào, bắt đầu tại đây để hiểu file nào bị ảnh hưởng trước khi mở chúng.
+**Primary Focus**: Cross-cutting concerns, inter-layer contracts, architectural decisions, and the dependency map between all docs files.
+**Perspective**: This is the entry point for understanding the entire system. The Technical Lead is simultaneously aware of all roles: when thinking about a DB schema change, immediately sees API contracts, TypeScript types, test assertions, and deployment implications. When starting any feature, begin here to understand which files are affected before opening them.
 
 ### How to Use This Document
-1. Xác định feature hoặc thay đổi đang implement.
-2. Tìm nó trong **Feature Impact Matrix** bên dưới.
-3. Mở đúng những files được liệt kê trong row đó — theo thứ tự được liệt kê.
-4. Áp dụng role định nghĩa ở đầu mỗi file khi làm việc trong đó.
-5. Quay lại đây để xác minh đã xử lý tất cả cross-cutting concerns trước khi đóng công việc.
+1. Identify the feature or change being implemented.
+2. Find it in the **Feature Impact Matrix** below.
+3. Open only the files listed in that row — in the order listed.
+4. Apply the role defined at the top of each file when working within it.
+5. Return here to verify all cross-cutting concerns have been addressed before closing the work.
 
 ### Files Governed by This Overview
 | File | Role Persona | Primary Domain |
@@ -29,273 +29,271 @@
 ## 1. System Architecture Summary
 
 **Stack**:
-- Frontend: React 18 + TypeScript + Tailwind CSS + Vite, served via nginx trên production
-- Backend: Node.js + Express + TypeScript, raw `pg` (no ORM), Socket.io cho realtime
-- Database: PostgreSQL 15
-- Auth: JWT (Bearer token), 7-day expiry, role encoded trong payload
-- Realtime: Socket.io rooms per user (`user_<id>`) và per shift (`shift_<id>`)
-- Background Jobs: node-cron (payroll calc hàng ngày, reminders mỗi 30 phút, auto-assign on trigger)
+- Frontend: React 18 + TypeScript + Tailwind CSS + Vite, served via nginx in production
+- Backend: Node.js + Express + TypeScript, raw `mysql2` (no ORM), Socket.io for realtime
+- Database: MySQL 8
+- Auth: JWT (Bearer token), 7-day expiry, role encoded in payload
+- Realtime: Socket.io rooms per user (`user_<id>`) and per shift (`shift_<id>`)
+- Background Jobs: node-cron (daily payroll calc, reminders every 30 minutes, auto-assign on trigger)
 - Infrastructure: Docker Compose (dev + prod), GitHub Actions CI/CD
 
-**Ba application roles** (khác với document roles ở trên):
-- `student` — đăng ký ca, check-in/out, xem lương, nhận notifications
-- `employer` — tạo jobs và shifts, duyệt đăng ký, quản lý chấm công, chạy payroll
-- `admin` — quản lý user toàn platform và statistics; không tương tác với shift/payroll data
+**Three application roles** (distinct from the document roles above):
+- `student` — registers for shifts, checks in/out, views payroll, receives notifications
+- `employer` — creates jobs and shifts, approves registrations, manages attendance, runs payroll
+- `admin` — manages users across the platform and views statistics; does not interact with shift/payroll data
 
 ---
 
 ## 2. The Four Contracts
 
-Đây là 4 ranh giới mà các layer khác nhau của hệ thống phải đồng thuận. Bất kỳ thay đổi nào vượt qua ranh giới đều yêu cầu cập nhật cả hai phía.
+These are the 4 boundaries where different system layers must agree. Any change crossing a boundary requires updating both sides.
 
 ### Contract A: DB Schema ↔ API Response Shape
-**Owner files**: `docs/01-system-design.md` (phía trái), `docs/03-backend.md` (phía phải)
+**Owner files**: `docs/01-system-design.md` (left side), `docs/03-backend.md` (right side)
 
-Mỗi column trong DB schema mà service query trả về tạo ra nghĩa vụ cho API response body. TypeScript types của frontend được derive từ các response bodies này.
+Every column in the DB schema that a service query returns creates an obligation on the API response body. Frontend TypeScript types are derived from these response bodies.
 
-**Enum binding quan trọng** — những enum này xuất hiện xuyên suốt toàn stack:
+**Critical enum bindings** — these enums appear throughout the entire stack:
 - `users.role` (`student`, `employer`, `admin`): JWT payload → `req.user.role` → roleGuard → `useAuthStore` → `RoleRoute` props → Badge rendering
 - `shift_registrations.status` (`pending`, `approved`, `rejected`, `cancelled`): DB → API response → `ShiftEvent.tsx` color mapping → `Badge.tsx` variants → test assertions
 - `attendance.status` (`on_time`, `late`, `absent`, `pending`): DB → attendance service → `Badge.tsx` → `AttendanceRow.tsx` → test assertions
 - `payroll.status` (`draft`, `confirmed`, `paid`): DB → payroll service → employer payroll UI → E2E test assertions
 
-**Quy tắc**: Khi thêm hoặc đổi tên enum value, cập nhật: `01-system-design.md` (schema + data flow), `03-backend.md` (Zod schema + service query), `04-frontend.md` (Badge.tsx color map + TypeScript type), `05-testing.md` (test cases assert status values cụ thể).
+**Rule**: When adding or renaming an enum value, update: `01-system-design.md` (schema + data flow), `03-backend.md` (Zod schema + service query), `04-frontend.md` (Badge.tsx color map + TypeScript type), `05-testing.md` (test cases that assert specific status values).
 
 ### Contract B: API Endpoint ↔ Frontend API Module
-**Owner files**: `docs/03-backend.md` (phía trái), `docs/04-frontend.md` §8 (phía phải)
+**Owner files**: `docs/03-backend.md` (left side), `docs/04-frontend.md` §8 (right side)
 
-Mỗi endpoint trong `03-backend.md` có function counterpart trực tiếp trong một `frontend/src/api/*.ts` module. Request body shape và response body shape là binding contract.
+Every endpoint in `03-backend.md` has a direct function counterpart in a `frontend/src/api/*.ts` module. Request body shape and response body shape are the binding contract.
 
-**Binding quan trọng**:
-- `POST /api/auth/register` → response trả về `token` và `user` — `useAuthStore.login()` destructure đúng 2 fields đó
-- `POST /api/shifts/:id/register` → trả về `{ registration: { id, status, ... } }` — `useShiftStore.registerShift()` dùng để update `myRegistrations`
-- `POST /api/attendance/checkin` → trả về `{ attendance: { status, late_minutes, check_in_time } }` — `CheckInButton.tsx` display trực tiếp
-- Error shape luôn là `{ error: "ERROR_CODE", message: "..." }` — `apiClient.ts` interceptor xử lý shape này cho user-facing toasts
+**Critical bindings**:
+- `POST /api/auth/register` → response returns `token` and `user` — `useAuthStore.login()` destructures exactly those 2 fields
+- `POST /api/shifts/:id/register` → returns `{ registration: { id, status, ... } }` — `useShiftStore.registerShift()` uses it to update `myRegistrations`
+- `POST /api/attendance/checkin` → returns `{ attendance: { status, late_minutes, check_in_time } }` — `CheckInButton.tsx` displays directly
+- Error shape is always `{ error: "ERROR_CODE", message: "..." }` — `apiClient.ts` interceptor handles this shape for user-facing toasts
 
-**Quy tắc**: Khi thay đổi request body field (đổi tên, thêm required field, đổi type), cập nhật cả `03-backend.md` (Zod schema + endpoint spec) VÀ `04-frontend.md` (API function signature + form gọi nó). Không bao giờ chỉ thay đổi một phía.
+**Rule**: When changing a request body field (rename, add required field, change type), update both `03-backend.md` (Zod schema + endpoint spec) AND `04-frontend.md` (API function signature + form calling it). Never change only one side.
 
 ### Contract C: Socket.io Event ↔ Frontend Socket Hook
 **Owner files**: `docs/01-system-design.md` §5 (event map authority), `docs/03-backend.md` §4 (emission site), `docs/04-frontend.md` §6 (consumption site)
 
-Đây là three-file contract. Event map trong `01-system-design.md` là nguồn sự thật duy nhất cho tên event và payload structures.
+This is a three-file contract. The event map in `01-system-design.md` is the single source of truth for event names and payload structures.
 
-**Event chain hiện tại**:
+**Current event chain**:
 | Event | Emitted by (backend) | Consumed by (frontend hook) | Store update |
 |-------|---------------------|-----------------------------|--------------|
-| `notification:new` | Bất kỳ service nào gọi `notifyUser()` | `useNotificationSocket.ts` | `addNotification()` trong `useNotificationStore` |
-| `attendance:update` | `attendance.service.ts` khi checkin | `useAttendanceSocket.ts` | `updateAttendanceRecord()` trong attendance store |
-| `shift:registered` | `shift.service.ts` khi student đăng ký | Employer's `useSocket.ts` trong shift room | Refresh danh sách đăng ký |
-| `shift:approved` | `shift.service.ts` khi employer duyệt | `useNotificationSocket.ts` | Trigger notification + badge update |
+| `notification:new` | Any service calling `notifyUser()` | `useNotificationSocket.ts` | `addNotification()` in `useNotificationStore` |
+| `attendance:update` | `attendance.service.ts` on checkin | `useAttendanceSocket.ts` | `updateAttendanceRecord()` in attendance store |
+| `shift:registered` | `shift.service.ts` when student registers | Employer's `useSocket.ts` in shift room | Refresh registration list |
+| `shift:approved` | `shift.service.ts` when employer approves | `useNotificationSocket.ts` | Trigger notification + badge update |
 | `payroll:updated` | `autoCalcPayroll.ts` background job | `useNotificationSocket.ts` | Trigger notification |
 | `shift:reminder` | `sendReminders.ts` background job | `useNotificationSocket.ts` | Trigger notification + toast |
 
-**Quy tắc**: Thêm socket event mới yêu cầu cập nhật cả 3 files theo thứ tự: (1) thêm vào event map trong `01-system-design.md` §5, (2) thêm emission trong `03-backend.md` §4, (3) thêm `socket.on()` trong `04-frontend.md` §6.
+**Rule**: Adding a new socket event requires updating all 3 files in order: (1) add to event map in `01-system-design.md` §5, (2) add emission in `03-backend.md` §4, (3) add `socket.on()` in `04-frontend.md` §6.
 
 ### Contract D: Business Rule ↔ Test Assertion
 **Owner files**: `docs/01-system-design.md` §6-7 (rule source), `docs/03-backend.md` §6 (implementation), `docs/05-testing.md` §2-3 (assertion)
 
-Business rules có numeric constants (delta values, percentages, time thresholds) được encode ở ba nơi đồng thời.
+Business rules have numeric constants (delta values, percentages, time thresholds) encoded in three places simultaneously.
 
-**Constant bindings quan trọng**:
+**Critical constant bindings**:
 | Constant | Defined in | Implemented in | Tested in |
 |----------|-----------|----------------|-----------|
-| Bonus = 5% nếu đúng giờ và đủ giờ | `01-system-design.md` §7 | `utils/payrollCalc.ts` | `payrollCalc.test.ts` |
-| Penalty = 2% nếu trễ 1–15 phút | `01-system-design.md` §7 | `payrollCalc.ts` | `payrollCalc.test.ts` |
-| Penalty = 5% nếu trễ >15 phút | `01-system-design.md` §7 | `payrollCalc.ts` | `payrollCalc.test.ts` |
-| Ngưỡng đúng giờ = 5 phút | `03-backend.md` §6 | `attendance.service.ts` | `attendance.test.ts` |
-| Reputation: checkin đúng giờ = +2.0 | `01-system-design.md` §6 | `reputationCalc.ts` | `reputationCalc.test.ts` |
-| Reputation: vắng = −10.0 | `01-system-design.md` §6 | `reputationCalc.ts` | `reputationCalc.test.ts` |
-| Reputation: hủy <24h = −7.0 | `01-system-design.md` §6 | `shift.service.ts` | `shifts.test.ts` |
-| Auto-assign bị khóa dưới score 50 | `01-system-design.md` §6 | `autoAssignShift.ts` | integration test |
+| Payroll deduction model (see §7) | `01-system-design.md` §7 | `utils/payrollCalc.ts` | `payrollCalc.test.ts` |
+| On-time threshold = 5 minutes | `03-backend.md` §6 | `attendance.service.ts` | `attendance.test.ts` |
+| Reputation: on-time check-in = +2.0 | `01-system-design.md` §6 | `reputationCalc.ts` | `reputationCalc.test.ts` |
+| Reputation: absent = −10.0 | `01-system-design.md` §6 | `reputationCalc.ts` | `reputationCalc.test.ts` |
+| Reputation: cancel <24h = −7.0 | `01-system-design.md` §6 | `shift.service.ts` | `shifts.test.ts` |
+| Auto-assign blocked below score 50 | `01-system-design.md` §6 | `autoAssignShift.ts` | integration test |
 
-**Quy tắc**: Thay đổi bất kỳ constant nào trong `01-system-design.md` yêu cầu đồng thời cập nhật implementation trong utility file tương ứng VÀ test assertions trong `05-testing.md`. Ba nơi này phải luôn đồng bộ. PR chỉ thay đổi một mà không thay đổi hai còn lại là PR chưa hoàn chỉnh.
+**Rule**: Changing any constant in `01-system-design.md` requires simultaneously updating the implementation in the corresponding utility file AND the test assertions in `05-testing.md`. All three locations must always stay in sync. A PR that changes only one without the other two is an incomplete PR.
 
 ---
 
 ## 3. Authentication & Authorization Flow (Cross-Layer)
 
-Đây là concern xuyên suốt nhất trong hệ thống. Bug ở đây phá vỡ cả 3 roles.
+This is the most pervasive concern in the system. A bug here breaks all 3 roles.
 
 ```
-[User submit login form]
+[User submits login form]
   → frontend: LoginPage → api/auth.ts login() → POST /api/auth/login
   → backend: auth.controller → auth.service → bcrypt.compare → jwt.sign({ id, email, role })
   → response: { token, user: { id, email, role, full_name } }
-  → frontend: useAuthStore.login() lưu token vào localStorage key "token" VÀ trong store
-  → frontend: axios interceptor trong apiClient.ts đọc localStorage "token" cho tất cả requests tiếp theo
+  → frontend: useAuthStore.login() saves token to localStorage key "token" AND in store
+  → frontend: axios interceptor in apiClient.ts reads localStorage "token" for all subsequent requests
 
 [Protected route access]
-  → frontend: ProtectedRoute kiểm tra useAuthStore().token → redirect /login nếu null
-  → frontend: RoleRoute kiểm tra useAuthStore().user.role → redirect /unauthorized nếu sai role
-  → backend: authMiddleware đọc Authorization: Bearer <token> → jwt.verify → attach req.user
-  → backend: roleGuard kiểm tra req.user.role → 403 nếu không trong allowed list
+  → frontend: ProtectedRoute checks useAuthStore().token → redirect /login if null
+  → frontend: RoleRoute checks useAuthStore().user.role → redirect /unauthorized if wrong role
+  → backend: authMiddleware reads Authorization: Bearer <token> → jwt.verify → attach req.user
+  → backend: roleGuard checks req.user.role → 403 if not in allowed list
 
 [Token expiry]
-  → backend: jwt.verify throw TokenExpiredError → authMiddleware gửi 401
-  → frontend: apiClient.ts response interceptor bắt 401 → clear auth store → redirect /login
+  → backend: jwt.verify throws TokenExpiredError → authMiddleware sends 401
+  → frontend: apiClient.ts response interceptor catches 401 → clear auth store → redirect /login
 ```
 
-Files phải nhất quán cho flow này hoạt động:
-- `docs/03-backend.md` §3 — authMiddleware và roleGuard specification
-- `docs/04-frontend.md` §4 — useAuthStore interface và localStorage key names
+Files that must stay consistent for this flow to work:
+- `docs/03-backend.md` §3 — authMiddleware and roleGuard specification
+- `docs/04-frontend.md` §4 — useAuthStore interface and localStorage key names
 - `docs/04-frontend.md` §8 — apiClient.ts 401 interceptor behavior
-- `docs/04-frontend.md` §9 — ProtectedRoute và RoleRoute implementation
+- `docs/04-frontend.md` §9 — ProtectedRoute and RoleRoute implementation
 
 ---
 
 ## 4. Feature Impact Matrix
 
-Dùng bảng này khi bắt đầu feature mới hoặc thay đổi bất kỳ để nhanh chóng xác định files nào cần cập nhật.
+Use this table when starting a new feature or making any change to quickly identify which files need updating.
 
-| Feature / Thay đổi | 01-system-design | 02-project-init | 03-backend | 04-frontend | 05-testing | 06-deployment |
-|-------------------|:----------------:|:---------------:|:----------:|:-----------:|:----------:|:-------------:|
-| Bảng DB mới | **BẮT BUỘC** | **BẮT BUỘC** (migration) | **BẮT BUỘC** | có thể | **BẮT BUỘC** (seed) | kiểm tra (ENV) |
-| Cột DB mới | **BẮT BUỘC** | có thể (migration) | **BẮT BUỘC** | **BẮT BUỘC** | **BẮT BUỘC** | — |
-| Đổi tên cột DB | **BẮT BUỘC** | migration | **BẮT BUỘC** | **BẮT BUỘC** | **BẮT BUỘC** | — |
-| REST endpoint mới | có thể | — | **BẮT BUỘC** | **BẮT BUỘC** | **BẮT BUỘC** | — |
-| Thay đổi request body | — | — | **BẮT BUỘC** | **BẮT BUỘC** | **BẮT BUỘC** | — |
-| Thay đổi response body | có thể | — | **BẮT BUỘC** | **BẮT BUỘC** | **BẮT BUỘC** | — |
-| Socket.io event mới | **BẮT BUỘC** | — | **BẮT BUỘC** | **BẮT BUỘC** | có thể | — |
-| Business rule constant mới | **BẮT BUỘC** | — | **BẮT BUỘC** | có thể | **BẮT BUỘC** | — |
-| Enum value mới | **BẮT BUỘC** | — | **BẮT BUỘC** | **BẮT BUỘC** | **BẮT BUỘC** | — |
-| npm dependency mới | — | **BẮT BUỘC** | hoặc frontend | hoặc backend | — | kiểm tra (Docker) |
-| Env variable mới | — | **BẮT BUỘC** | **BẮT BUỘC** | hoặc frontend | — | **BẮT BUỘC** |
-| Background job mới | có thể | **BẮT BUỘC** (.env) | **BẮT BUỘC** | có thể | có thể | có thể (cron) |
-| Migration file mới | **BẮT BUỘC** | **BẮT BUỘC** | — | — | **BẮT BUỘC** (seed) | **BẮT BUỘC** |
-| Page/route mới | — | — | kiểm tra (endpoint) | **BẮT BUỘC** | **BẮT BUỘC** (E2E) | — |
-| Component mới | — | — | — | **BẮT BUỘC** | **BẮT BUỘC** (unit) | — |
-| Zustand store mới | — | — | kiểm tra | **BẮT BUỘC** | **BẮT BUỘC** | — |
-| Thay đổi auth/role logic | — | — | **BẮT BUỘC** | **BẮT BUỘC** | **BẮT BUỘC** | — |
-| Thay đổi Docker/CI | — | kiểm tra | — | — | kiểm tra | **BẮT BUỘC** |
+| Feature / Change | 01-system-design | 02-project-init | 03-backend | 04-frontend | 05-testing | 06-deployment |
+|-----------------|:----------------:|:---------------:|:----------:|:-----------:|:----------:|:-------------:|
+| New DB table | **REQUIRED** | **REQUIRED** (migration) | **REQUIRED** | maybe | **REQUIRED** (seed) | check (ENV) |
+| New DB column | **REQUIRED** | maybe (migration) | **REQUIRED** | **REQUIRED** | **REQUIRED** | — |
+| Rename DB column | **REQUIRED** | migration | **REQUIRED** | **REQUIRED** | **REQUIRED** | — |
+| New REST endpoint | maybe | — | **REQUIRED** | **REQUIRED** | **REQUIRED** | — |
+| Change request body | — | — | **REQUIRED** | **REQUIRED** | **REQUIRED** | — |
+| Change response body | maybe | — | **REQUIRED** | **REQUIRED** | **REQUIRED** | — |
+| New Socket.io event | **REQUIRED** | — | **REQUIRED** | **REQUIRED** | maybe | — |
+| New business rule constant | **REQUIRED** | — | **REQUIRED** | maybe | **REQUIRED** | — |
+| New enum value | **REQUIRED** | — | **REQUIRED** | **REQUIRED** | **REQUIRED** | — |
+| New npm dependency | — | **REQUIRED** | or frontend | or backend | — | check (Docker) |
+| New env variable | — | **REQUIRED** | **REQUIRED** | or frontend | — | **REQUIRED** |
+| New background job | maybe | **REQUIRED** (.env) | **REQUIRED** | maybe | maybe | maybe (cron) |
+| New migration file | **REQUIRED** | **REQUIRED** | — | — | **REQUIRED** (seed) | **REQUIRED** |
+| New page/route | — | — | check (endpoint) | **REQUIRED** | **REQUIRED** (E2E) | — |
+| New component | — | — | — | **REQUIRED** | **REQUIRED** (unit) | — |
+| New Zustand store | — | — | check | **REQUIRED** | **REQUIRED** | — |
+| Change auth/role logic | — | — | **REQUIRED** | **REQUIRED** | **REQUIRED** | — |
+| Change Docker/CI | — | check | — | — | check | **REQUIRED** |
 
 ---
 
 ## 5. Critical Business Rules (Cross-Layer Summary)
 
-Các rules này được implement trong backend utilities nhưng derive từ system design và được verify bởi tests. Developer chạm vào chúng phải phối hợp trên cả 3 files.
+These rules are implemented in backend utilities but derived from system design and verified by tests. Developers touching them must coordinate across all 3 files.
 
 ### Shift Conflict Detection
-- **Source**: `docs/01-system-design.md` §3.1 và `docs/03-backend.md` §6
+- **Source**: `docs/01-system-design.md` §3.1 and `docs/03-backend.md` §6
 - **Implementation**: `backend/src/utils/conflictCheck.ts`
-- **Test**: `backend/tests/conflictCheck.test.ts` và `shifts.test.ts` (integration, 409 case)
-- **Frontend impact**: `docs/04-frontend.md` §5 (conflict highlight trong calendar) và §7.1 (UX flow step 6)
-- **Rule**: Overlapping time windows với status `pending` HOẶC `approved` là conflict. `rejected` và `cancelled` không tính.
+- **Test**: `backend/tests/conflictCheck.test.ts` and `shifts.test.ts` (integration, 409 case)
+- **Frontend impact**: `docs/04-frontend.md` §5 (conflict highlight in calendar) and §7.1 (UX flow step 6)
+- **Rule**: Overlapping time windows with status `pending` OR `approved` constitute a conflict. `rejected` and `cancelled` do not count.
 
 ### Payroll Calculation
 - **Source**: `docs/01-system-design.md` §7 (formula)
 - **Implementation**: `backend/src/utils/payrollCalc.ts`
 - **Test**: `backend/tests/payrollCalc.test.ts`
-- **Trigger**: `autoCalcPayroll.ts` background job (hàng ngày) HOẶC `POST /api/payroll/calculate` (thủ công)
-- **Frontend impact**: `docs/04-frontend.md` §3 (`PayrollSummaryCard.tsx` hiển thị base/bonus/penalty breakdown)
+- **Trigger**: `autoCalcPayroll.ts` background job (daily) OR `POST /api/payroll/calculate` (manual)
+- **Frontend impact**: `docs/04-frontend.md` §3 (`PayrollSummaryCard.tsx` displays base/deduction breakdown)
 
 ### Reputation Score
 - **Source**: `docs/01-system-design.md` §6
 - **Implementation**: `backend/src/utils/reputationCalc.ts`
 - **Test**: `backend/tests/reputationCalc.test.ts`
-- **Bounds**: Score clamp vào [0, 200]. Score < 50 chặn auto-assign eligibility.
-- **Frontend impact**: ProfilePage hiển thị `reputation_score` từ `student_profiles.reputation_score`
+- **Bounds**: Score clamped to [0, 200]. Score < 50 blocks auto-assign eligibility.
+- **Frontend impact**: ProfilePage displays `reputation_score` from `student_profiles.reputation_score`
 
 ### Late Detection
-- **Source**: `docs/03-backend.md` §6 (ngưỡng 5 phút)
-- **Implementation**: `attendance.service.ts` khi checkin
-- **Test**: `backend/tests/attendance.test.ts` (checkin trễ 10 phút → status=late, late_minutes=10)
-- **Lưu ý**: Ngưỡng 5 phút được định nghĩa trong `03-backend.md`, không phải `01-system-design.md`. Đây là constant nghiệp vụ duy nhất chỉ nằm trong backend spec.
+- **Source**: `docs/03-backend.md` §6 (5-minute threshold)
+- **Implementation**: `attendance.service.ts` at check-in time
+- **Test**: `backend/tests/attendance.test.ts` (check-in 10 minutes late → status=late, late_minutes=10)
+- **Note**: The 5-minute threshold is defined in `03-backend.md`, not `01-system-design.md`. This is the only business constant that lives solely in the backend spec.
 
 ---
 
 ## 6. Realtime Architecture Summary
 
-Socket.io dùng cho push notifications từ server đến specific users và shift rooms. Không có client-to-server data mutation qua sockets (tất cả mutations đi qua REST).
+Socket.io is used for server-to-client push notifications to specific users and shift rooms. There is no client-to-server data mutation via sockets (all mutations go through REST).
 
 **Room strategy**:
-- `user_<userId>` — mỗi user join room này khi connect; dùng cho personal notifications
-- `shift_<shiftId>` — employers join room này để xem realtime attendance cho một shift cụ thể
+- `user_<userId>` — each user joins this room on connect; used for personal notifications
+- `shift_<shiftId>` — employers join this room to view real-time attendance for a specific shift
 
-**Connection lifecycle** (xem `docs/04-frontend.md` §6, `docs/03-backend.md` §4):
-1. Frontend connect đến Socket.io server với JWT trong auth header
-2. On connect: client emit `join:room` với personal room của mình
-3. Employers thêm emit `join:shift` khi xem shift detail page
-4. Server emit đến rooms; clients update Zustand stores qua socket hooks
-5. On component unmount: socket disconnect (cleanup trong `useSocket.ts`)
+**Connection lifecycle** (see `docs/04-frontend.md` §6, `docs/03-backend.md` §4):
+1. Frontend connects to Socket.io server with JWT in auth header
+2. On connect: client emits `join:room` with their personal room
+3. Employers additionally emit `join:shift` when viewing the shift detail page
+4. Server emits to rooms; clients update Zustand stores via socket hooks
+5. On component unmount: socket disconnects (cleanup in `useSocket.ts`)
 
 ---
 
 ## 7. Database Migration Safety Rules
 
-5 quy tắc này cross-cutting giữa `docs/01-system-design.md`, `docs/02-project-init.md`, và `docs/06-deployment.md`.
+These 5 rules cut across `docs/01-system-design.md`, `docs/02-project-init.md`, and `docs/06-deployment.md`.
 
-1. **Không bao giờ** edit migration file đã được commit. Thêm migration mới thay thế.
-2. Migration files được đánh số theo timestamp; thứ tự trong `02-project-init.md` §9 là sequence chuẩn tắc và phản ánh thứ tự phụ thuộc foreign key.
-3. Trên production: **backup database TRƯỚC** khi chạy bất kỳ migration nào.
-4. CI pipeline chạy migrations trên clean test database trước khi chạy tests. Migration fail trong CI sẽ fail trên production.
-5. Schema changes trong `01-system-design.md` chưa live cho đến khi migration file tương ứng tồn tại VÀ đã được chạy.
+1. **Never** edit a migration file that has been committed. Add a new migration instead.
+2. Migration files are numbered by timestamp; the order in `02-project-init.md` §9 is the canonical sequence and reflects the foreign key dependency order.
+3. On production: **back up the database BEFORE** running any migration.
+4. The CI pipeline runs migrations on a clean test database before running tests. A migration failure in CI will also fail in production.
+5. Schema changes in `01-system-design.md` are not live until the corresponding migration file exists AND has been run.
 
 ---
 
 ## 8. How to Add a New Feature (Checklist)
 
-Dùng thứ tự này để tránh inconsistencies khi implement.
+Use this order to avoid inconsistencies when implementing.
 
-**Bước 1 — Design** (bắt đầu tại `docs/01-system-design.md`)
-- [ ] Feature này có cần bảng hoặc cột mới không? Cập nhật ERD và data flow sections.
-- [ ] Feature này có giới thiệu Socket.io events mới không? Thêm vào event map (§5).
-- [ ] Feature này có giới thiệu business rules mới với numeric constants không? Thêm vào §6 hoặc §7.
+**Step 1 — Design** (start at `docs/01-system-design.md`)
+- [ ] Does this feature need a new table or column? Update the ERD and data flow sections.
+- [ ] Does this feature introduce new Socket.io events? Add them to the event map (§5).
+- [ ] Does this feature introduce new business rules with numeric constants? Add them to §6 or §7.
 
-**Bước 2 — Infrastructure** (`docs/02-project-init.md`)
-- [ ] Feature này có cần env vars mới không? Thêm vào bảng `.env.example`.
-- [ ] Feature này có cần migration files mới không? Thêm vào danh sách migration với đúng thứ tự timestamp.
+**Step 2 — Infrastructure** (`docs/02-project-init.md`)
+- [ ] Does this feature need new env vars? Add them to the `.env.example` table.
+- [ ] Does this feature need new migration files? Add them to the migration list with the correct timestamp order.
 
-**Bước 3 — Backend** (`docs/03-backend.md`)
-- [ ] Document mỗi endpoint mới: method, path, role guard, request, response, errors.
-- [ ] Document bất kỳ socket events mới nào được emit: tên event, payload, target room.
-- [ ] Document bất kỳ background job logic mới hoặc đã sửa nào.
-- [ ] Document bất kỳ business rule implementation mới nào.
+**Step 3 — Backend** (`docs/03-backend.md`)
+- [ ] Document each new endpoint: method, path, role guard, request, response, errors.
+- [ ] Document any new socket events emitted: event name, payload, target room.
+- [ ] Document any new or modified background job logic.
+- [ ] Document any new business rule implementations.
 
-**Bước 4 — Frontend** (`docs/04-frontend.md`)
-- [ ] Thêm routes mới vào route map.
-- [ ] Thêm store state/actions mới vào Zustand store interface liên quan.
-- [ ] Thêm API module functions cho mỗi endpoint mới.
-- [ ] Thêm socket hook logic cho bất kỳ events mới nào.
-- [ ] Document UX flow cho user-facing features.
+**Step 4 — Frontend** (`docs/04-frontend.md`)
+- [ ] Add new routes to the route map.
+- [ ] Add new store state/actions to the relevant Zustand store interface.
+- [ ] Add API module functions for each new endpoint.
+- [ ] Add socket hook logic for any new events.
+- [ ] Document the UX flow for user-facing features.
 
-**Bước 5 — Testing** (`docs/05-testing.md`)
-- [ ] Thêm unit test cases cho utility functions mới.
-- [ ] Thêm integration test cases cho mỗi endpoint mới (happy path + primary error cases).
-- [ ] Thêm frontend unit test cases cho components mới.
-- [ ] Cập nhật E2E tests nếu happy-path flow thay đổi.
-- [ ] Cập nhật seed data nếu cần bảng hoặc test scenarios mới.
+**Step 5 — Testing** (`docs/05-testing.md`)
+- [ ] Add unit test cases for new utility functions.
+- [ ] Add integration test cases for each new endpoint (happy path + primary error cases).
+- [ ] Add frontend unit test cases for new components.
+- [ ] Update E2E tests if a happy-path flow has changed.
+- [ ] Update seed data if new tables or test scenarios are required.
 
-**Bước 6 — Deployment** (`docs/06-deployment.md`)
-- [ ] Thêm env vars mới vào production ENV checklist.
-- [ ] Cập nhật release checklist nếu có migration mới hoặc infrastructure steps mới.
+**Step 6 — Deployment** (`docs/06-deployment.md`)
+- [ ] Add new env vars to the production ENV checklist.
+- [ ] Update the release checklist if there are new migrations or infrastructure steps.
 
 ---
 
 ## 9. Decisions Log
 
-Ghi lại các quyết định thiết kế đã được xác nhận. Không thay đổi các decisions này mà không có lý do rõ ràng.
+Records confirmed design decisions. Do not change these without a clear reason.
 
-| # | Ngày | Vấn đề | Decision | Lý do |
-|---|------|--------|----------|-------|
-| 1 | 2026-03-27 | User creation flow | Employer tự đăng ký; Student do employer tạo qua `POST /api/employers/employees` | Hệ thống nội bộ — employer quản lý toàn bộ nhân sự của mình |
-| 2 | 2026-03-27 | Auto-assign flow | Weekly scheduling job (0:00 thứ Hai), xử lý tất cả pending registrations của tuần | Student chủ động đăng ký ca muốn làm; hệ thống tự động giải quyết conflicts và ưu tiên |
-| 3 | 2026-03-27 | Rating/Review | Implement bảng `ratings` + endpoint `POST /api/ratings` + tính vào reputation | Cần thiết cho reputation score có ý nghĩa thực tế |
-| 4 | 2026-03-27 | Shift status transitions | Tự động hoàn toàn qua background jobs | Giảm thao tác thủ công cho employer |
-| 5 | 2026-03-27 | Payroll total_pay âm | Clamp về 0 — `GREATEST(0, base_pay + bonus - penalty)` | Không có nghĩa kinh doanh khi student nợ lương |
-| 6 | 2026-03-27 | Employer hủy ca | Student KHÔNG bị trừ reputation | Student không có lỗi khi employer hủy |
-| 7 | 2026-03-27 | Conflict check scope | Chỉ `pending` + `approved` tính conflict; `rejected`/`cancelled` không tính | Student bị reject/cancel phải có thể đăng ký ca khác cùng giờ |
-| 8 | 2026-03-27 | Cancel penalty | Hủy ≥24h = 0 điểm; Hủy <24h = -7.0 reputation | Hủy sớm không gây hại cho employer; hủy trễ gây khó khăn cho việc tìm người thay |
-| 9 | 2026-03-27 | Deadline đăng ký | **Chủ nhật 12:00 trưa** — scheduler chạy 0:00 thứ Hai chỉ xử lý registrations trước deadline | Cho employer 12 tiếng buổi chiều Chủ nhật để manually fill ca thiếu người |
-| 10 | 2026-03-27 | Conflict check | **KHÔNG check conflict khi đăng ký** — student đăng ký nhiều ca trùng giờ được; scheduler giải quyết | UX đơn giản hơn; student không bị block khi muốn thử nhiều ca |
-| 11 | 2026-03-27 | Ca ít người | Alert employer lúc 11:00 sáng Chủ nhật nếu ca chưa đủ người | 1 giờ trước deadline để employer kịp assign thủ công |
-| 12 | 2026-03-27 | Temp password | Chỉ return trong API response — employer copy cho nhân viên | Không cần email service cho BTL |
-| 13 | 2026-03-27 | Timezone | UTC+7 toàn hệ thống — không convert | Hệ thống chỉ dùng ở Việt Nam |
-| 14 | 2026-03-27 | Report module | Có biểu đồ với recharts | Employer cần trend visualization |
-| 15 | 2026-03-27 | Multi-employer | Student thuộc **1 employer duy nhất** — `employer_id` trong `student_profiles` | Hệ thống nội bộ, không phải marketplace; employer quản lý nhân sự của mình |
-| 16 | 2026-03-27 | Payroll accumulation | Real-time: shift hoàn thành → tạo `payroll_item` ngay → cộng dồn → `payroll` tổng kết cuối kỳ | Student thấy lương cập nhật ngay sau mỗi ca; không cần chờ batch hàng ngày |
-| 17 | 2026-03-27 | Admin scope | Đầy đủ: stats + lock/unlock + **tạo employer account** + **xem/can thiệp payroll và shifts của bất kỳ employer** | Admin cần toàn quyền để hỗ trợ và giám sát toàn hệ thống |
-| 18 | 2026-03-27 | Payroll formula | Deduction model: `total_pay = scheduled_pay - late_deduction - early_deduction`; `attendance` track cả `late_minutes` và `early_minutes`; `payroll_items` lưu breakdown | Trừ tuyến tính theo thời gian thiếu; UI hiển thị được từng khoản trừ; reputation tách biệt hoàn toàn |
-| 19 | 2026-03-27 | Payroll period | Calendar month: `period_start = ngày 1`, `period_end = ngày cuối tháng`; auto-create payroll record cho tháng khi tạo payroll_item đầu tiên | Đơn giản, dễ hiểu; phù hợp chu kỳ thanh toán thực tế |
-| 20 | 2026-03-27 | Cancel approved registration | `current_workers -= 1` VÀ slot mở lại cho người khác đăng ký | Student hủy thì slot phải được lấp; employer không cần làm gì thêm |
-| 21 | 2026-03-27 | No-checkout handling | Status = `incomplete`, `hours_worked = 0`, không tính lương; employer có thể force-checkout từ xa tối đa **3 lần / student / tháng** | Bảo vệ student khỏi mất lương do quên checkout; limit tránh lạm dụng |
-| 22 | 2026-03-27 | Admin seeding | Admin account seeded qua `npm run seed`; employer tự đăng ký trên web | BTL scope không cần admin creation flow phức tạp |
+| # | Date | Issue | Decision | Rationale |
+|---|------|-------|----------|-----------|
+| 1 | 2026-03-27 | User creation flow | Employer self-registers; Student is created by employer via `POST /api/employers/employees` | Internal system — employer manages all their own staff |
+| 2 | 2026-03-27 | Auto-assign flow | Weekly scheduling job (Monday 00:00), processes all pending registrations for the week | Students proactively register for desired shifts; system automatically resolves conflicts and prioritizes |
+| 3 | 2026-03-27 | Rating/Review | Implement `ratings` table + `POST /api/ratings` endpoint + feed into reputation | Needed for reputation score to have real-world meaning |
+| 4 | 2026-03-27 | Shift status transitions | Fully automatic via background jobs | Reduces manual work for employer |
+| 5 | 2026-03-27 | Payroll total_pay negative | Clamp to 0 — `GREATEST(0, base_pay + bonus - penalty)` | Negative pay has no business meaning |
+| 6 | 2026-03-27 | Employer cancels shift | Student is NOT penalized in reputation | Student is not at fault when employer cancels |
+| 7 | 2026-03-27 | Conflict check scope | Only `pending` + `approved` count as conflict; `rejected`/`cancelled` do not | Students who were rejected/cancelled must be able to register for another shift at the same time |
+| 8 | 2026-03-27 | Cancel penalty | Cancel ≥24h = 0 points; Cancel <24h = -7.0 reputation | Early cancellation causes no harm to employer; late cancellation makes it hard to find a replacement |
+| 9 | 2026-03-27 | Registration deadline | **Sunday 12:00 noon** — scheduler at Monday 00:00 only processes registrations submitted before the deadline | Gives the employer 12 hours on Sunday afternoon to manually fill understaffed shifts |
+| 10 | 2026-03-27 | Conflict check | **NO conflict check at registration time** — student may register for overlapping shifts; scheduler resolves it | Simpler UX; students are not blocked when wanting to try multiple shifts |
+| 11 | 2026-03-27 | Understaffed shifts | Alert employer at 11:00 AM Sunday if a shift does not have enough registrants | 1 hour before deadline so employer can manually assign |
+| 12 | 2026-03-27 | Temp password | Only returned in the API response — employer copies it for the employee | No email service needed for this project scope |
+| 13 | 2026-03-27 | Timezone | UTC+7 throughout the system — no conversion | System is used only in Vietnam |
+| 14 | 2026-03-27 | Report module | Charts using recharts | Employer needs trend visualization |
+| 15 | 2026-03-27 | Multi-employer | Student belongs to **1 employer only** — `employer_id` in `student_profiles` | Internal system, not a marketplace; employer manages their own staff |
+| 16 | 2026-03-27 | Payroll accumulation | Real-time: shift completes → create `payroll_item` immediately → accumulate → `payroll` summary at end of period | Student sees pay update immediately after each shift; no need to wait for daily batch |
+| 17 | 2026-03-27 | Admin scope | Full: stats + lock/unlock + **create employer accounts** + **view/intervene in any employer's payroll and shifts** | Admin needs full authority to support and monitor the entire system |
+| 18 | 2026-03-27 | Payroll formula | Deduction model: `total_pay = scheduled_pay - late_deduction - early_deduction`; `attendance` tracks both `late_minutes` and `early_minutes`; `payroll_items` stores breakdown | Linear deduction by missing time; UI can display each deduction; reputation completely separate |
+| 19 | 2026-03-27 | Payroll period | Calendar month: `period_start = 1st`, `period_end = last day`; auto-create payroll record for the month when the first payroll_item is created | Simple, intuitive; matches real-world payment cycles |
+| 20 | 2026-03-27 | Cancel approved registration | `current_workers -= 1` AND slot reopens for new registrations | When student cancels, slot must be fillable; employer does not need to do anything extra |
+| 21 | 2026-03-27 | No-checkout handling | Status = `incomplete`, `hours_worked = 0`, no pay; employer may force-checkout remotely up to **3 times / student / month** | Protects student from losing pay due to forgetting checkout; limit prevents abuse |
+| 22 | 2026-03-27 | Admin seeding | Admin account seeded via `npm run seed`; employer self-registers on the web | Project scope does not require a complex admin creation flow |

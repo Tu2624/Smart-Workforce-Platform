@@ -4,48 +4,48 @@
 ## Role
 
 **Persona**: Database Architect & Systems Designer
-**Primary Focus**: Mô hình dữ liệu chuẩn tắc, kiến trúc hệ thống, luồng dữ liệu, và các công thức tính toán nghiệp vụ.
-**Perspective**: Mọi quyết định ở đây là nguồn sự thật (source of truth) mà tất cả các layer khác phải tuân theo. Khi thiết kế hoặc chỉnh sửa file này, hãy tư duy theo hướng tính toàn vẹn dữ liệu, ràng buộc tham chiếu, và các nghĩa vụ contract với downstream — không phải sự tiện lợi khi implement.
+**Primary Focus**: Canonical data model, system architecture, data flows, and business calculation formulas.
+**Perspective**: Every decision here is the source of truth that all other layers must follow. When designing or editing this file, think in terms of data integrity, referential constraints, and downstream contract obligations — not implementation convenience.
 
 ### Responsibilities
-- Định nghĩa và duy trì DB schema (cấu trúc bảng, kiểu dữ liệu, constraints, indexes)
-- Sở hữu tất cả data flow diagrams (đăng ký ca, check-in, tính lương, auto-assign)
-- Định nghĩa Socket.io event map (tên event, payload shape, người nhận)
-- Định nghĩa công thức nghiệp vụ: tính lương (bonus/penalty), thuật toán reputation score
-- Xác lập các tập enum value mà Zod schemas ở backend và Badge components ở frontend phụ thuộc vào
+- Define and maintain DB schema (table structure, data types, constraints, indexes)
+- Own all data flow diagrams (shift registration, check-in, payroll, auto-assign)
+- Define Socket.io event map (event names, payload shapes, recipients)
+- Define business formulas: payroll calculation, reputation score algorithm
+- Establish enum value sets that Zod schemas in backend and Badge components in frontend depend on
 
 ### Cross-Role Awareness
-| Khi bạn làm điều này... | Tham chiếu file này | Vì... |
-|--------------------------|---------------------|-------|
-| Thêm hoặc đổi tên cột DB | `docs/03-backend.md` | API response shapes và Zod schemas phải phản ánh thay đổi |
-| Thêm hoặc đổi tên cột DB | `docs/04-frontend.md` | TypeScript interfaces trong `frontend/src/types/` phải đồng bộ |
-| Thêm/sửa Socket.io event | `docs/04-frontend.md` §6 | Frontend socket hooks lắng nghe đúng tên event định nghĩa ở đây |
-| Thay đổi công thức lương (§7) | `docs/05-testing.md` §2 | `payrollCalc.test.ts` encode giá trị công thức cụ thể |
-| Thay đổi delta reputation | `docs/05-testing.md` §2 | `reputationCalc.test.ts` assert các số cụ thể |
-| Thêm enum value mới (vd: shift status) | `docs/03-backend.md` §2 | Zod schemas validate theo enum set; `docs/04-frontend.md` Badge.tsx map màu theo enum |
-| Thay đổi foreign key hoặc cascade rule | `docs/02-project-init.md` | Thứ tự migration file và rollback plan phải được cập nhật |
+| When you do this... | Reference this file | Because... |
+|---------------------|---------------------|------------|
+| Add or rename a DB column | `docs/03-backend.md` | API response shapes and Zod schemas must reflect the change |
+| Add or rename a DB column | `docs/04-frontend.md` | TypeScript interfaces in `frontend/src/types/` must stay in sync |
+| Add/modify Socket.io event | `docs/04-frontend.md` §6 | Frontend socket hooks listen for the exact event names defined here |
+| Change payroll formula (§7) | `docs/05-testing.md` §2 | `payrollCalc.test.ts` encodes specific formula values |
+| Change reputation delta | `docs/05-testing.md` §2 | `reputationCalc.test.ts` asserts specific numbers |
+| Add new enum value (e.g. shift status) | `docs/03-backend.md` §2 | Zod schemas validate against enum set; `docs/04-frontend.md` Badge.tsx maps colors by enum |
+| Change foreign key or cascade rule | `docs/02-project-init.md` | Migration file order and rollback plan must be updated |
 
 ### Files to Consult First
-- `docs/03-backend.md` — xác minh API contract nhất quán với thay đổi schema
-- `docs/04-frontend.md` — xác minh TypeScript types và socket hook event names đồng bộ
-- `docs/05-testing.md` — cập nhật test assertions khi constants công thức thay đổi
+- `docs/03-backend.md` — verify API contract is consistent with schema changes
+- `docs/04-frontend.md` — verify TypeScript types and socket hook event names are in sync
+- `docs/05-testing.md` — update test assertions when formula constants change
 
 ---
 
-## 1. Tổng Quan Hệ Thống
+## 1. System Overview
 
-**Smart Workforce Platform** là hệ thống quản lý và tự động hóa nhân sự dành cho sinh viên part-time. Hệ thống cho phép doanh nghiệp tạo job, quản lý ca làm, chấm công và tính lương tự động; sinh viên có thể đăng ký ca, check-in/out, xem lương real-time.
+**Smart Workforce Platform** is a workforce management and automation system for part-time students. The system allows businesses to create jobs, manage shifts, track attendance, and calculate payroll automatically; students can register for shifts, check in/out, and view their earnings in real-time.
 
 ### Actors
-| Actor | Mô tả |
-|-------|-------|
-| **Student** | Sinh viên part-time: đăng ký ca, check-in/out, xem lương, nhận thông báo |
-| **Employer** | Doanh nghiệp: tạo job, quản lý ca, duyệt ứng viên, tính lương, xuất báo cáo |
-| **Admin** | Quản trị hệ thống: quản lý user, job, xem thống kê toàn hệ thống |
+| Actor | Description |
+|-------|-------------|
+| **Student** | Part-time student: registers for shifts, checks in/out, views payroll, receives notifications |
+| **Employer** | Business: creates jobs, manages shifts, approves applicants, calculates payroll, exports reports |
+| **Admin** | System administrator: manages users, jobs, views system-wide statistics |
 
 ---
 
-## 2. Kiến Trúc Tổng Thể
+## 2. System Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -81,7 +81,7 @@
 │                        DATA LAYER                                 │
 │                                                                   │
 │              ┌─────────────────────┐                             │
-│              │     PostgreSQL       │                             │
+│              │      MySQL 8        │                             │
 │              │  (primary database) │                             │
 │              └─────────────────────┘                             │
 └──────────────────────────────────────────────────────────────────┘
@@ -89,243 +89,278 @@
 
 ---
 
-## 3. Luồng Dữ Liệu Chính
+## 3. Main Data Flows
 
-### 3.1 Đăng ký ca (Student)
+### 3.1 Shift Registration (Student)
 ```
-Employer publish shifts cho tuần tới
-  → Hệ thống gửi notification cho tất cả students: "Đăng ký ca tuần tới đã mở"
-  → Student vào app, xem danh sách ca, chọn các ca muốn làm
-  → POST /shifts/:id/register → tạo shift_registration (status=pending)
-  → Không kiểm tra conflict tại bước này — student được đăng ký nhiều ca trùng giờ
-  → Deadline: Chủ nhật 12:00 trưa (sau deadline scheduler xử lý)
-  → Employer có thể approve/reject thủ công bất lúc nào trong tuần
-  → 0:00 thứ Hai: scheduler tự động xử lý tất cả pending registrations còn lại
-  → Student nhận notification kết quả (approved/rejected)
+Employer publishes shifts for the coming week
+  → System sends notification to all students: "Next week's shift registration is open"
+  → Student opens app, views shift list, selects desired shifts
+  → POST /shifts/:id/register → creates shift_registration (status=pending)
+  → No conflict check at this step — student may register for overlapping shifts
+  → Deadline: Sunday 12:00 noon (scheduler processes after deadline)
+  → Employer may manually approve/reject any time during the week
+  → Monday 00:00: scheduler automatically processes all remaining pending registrations
+  → Student receives outcome notification (approved/rejected)
 ```
 
 ### 3.2 Check-in / Check-out
 ```
 Student → POST /attendance/checkin  { shift_id, location? }
-        → Backend: so sánh giờ thực vs shift.start_time
-        → Tính status: on_time | late | absent
-        → Lưu attendance record
+        → Backend: compare actual time vs shift.start_time
+        → Calculate late_minutes = GREATEST(0, TIMESTAMPDIFF(MINUTE, shift.start_time, check_in_time))
+        → Determine status: on_time (late_minutes ≤ 5) | late (late_minutes > 5)
+        → Save attendance record
         → Emit Socket.io event: attendance:update → Employer dashboard
 ```
 
-### 3.3 Tính lương tự động
+### 3.3 Automatic Payroll Calculation
 ```
-Background Job (mỗi ngày 00:00 hoặc khi shift kết thúc)
-  → Query attendance đã completed trong kỳ
-  → hourly_rate × hours_worked (thời gian thực tế)
-  → Lưu payroll record
-  → Emit Socket.io: payroll:updated → Student nhận thông báo lương
+Background Job (daily 00:00 or when shift ends)
+  → Query completed attendance records in the period
+  → hours_worked = TIMESTAMPDIFF(SECOND, check_in_time, check_out_time) / 3600
+               (capped at shift duration if check_out_time > shift.end_time)
+  → hourly_rate × hours_worked (actual time)
+  → Save payroll record
+  → Emit Socket.io: payroll:updated → Student receives payroll notification
 ```
 
 ### 3.4 Weekly Scheduling Job (Auto-assign)
 ```
-Chu kỳ lập lịch hàng tuần:
+Weekly scheduling cycle:
 
-1. Employer tạo shifts cho tuần tới (bất kỳ lúc nào trong tuần)
-2. Student đăng ký các ca muốn làm (deadline: Chủ nhật 12:00 trưa)
-   → Student CÓ THỂ đăng ký nhiều ca trùng giờ — hệ thống không chặn
-   → Trước 12:00 trưa: nếu ca nào chưa có đăng ký → hệ thống cảnh báo employer
-3. Background Job chạy lúc 0:00 thứ Hai:
-   a. Thu thập tất cả shift_registrations status=pending của tuần tới
-   b. Với mỗi ca có nhiều người đăng ký hơn max_workers:
-      → Ưu tiên student có reputation_score cao hơn
-      → Trong cùng band điểm: ưu tiên đăng ký sớm hơn (registered_at)
-   c. Kiểm tra conflict: student không được assigned 2 ca trùng giờ
-   d. Approved: cập nhật status=approved, tăng shift.current_workers
-   e. Rejected: cập nhật status=rejected (quá max_workers hoặc conflict)
-   f. Gửi notification cho tất cả student (approved hoặc rejected)
-4. Employer review kết quả và có thể chỉnh sửa thủ công
+1. Employer creates shifts for the coming week (any time during the week)
+2. Student registers for desired shifts (deadline: Sunday 12:00 noon)
+   → Student MAY register for overlapping shifts — system does not block
+   → Before 12:00 noon: if any shift has no registrations → system alerts employer
+3. Background Job runs at Monday 00:00:
+   a. Collect all shift_registrations with status=pending for the coming week
+   b. For each shift with more registrants than max_workers:
+      → Prioritize students with higher reputation_score
+      → Ties within same score band: prioritize earlier registration (registered_at)
+   c. Check conflict: student cannot be assigned 2 overlapping shifts
+   d. Approved: update status=approved, increment shift.current_workers
+   e. Rejected: update status=rejected (exceeds max_workers or conflict)
+   f. Send notification to all students (approved or rejected)
+4. Employer reviews results and may manually adjust
 ```
 
 ---
 
 ## 4. Database Schema (ERD)
 
-### Bảng `users`
+> **Database**: MySQL 8.0+, charset `utf8mb4`
+>
+> **Common conventions for all tables**:
+> - `CHAR(36) DEFAULT (UUID())` — parentheses around `UUID()` are **required** in MySQL; without them MySQL interprets it as a column name
+> - `DATETIME` instead of `TIMESTAMPTZ` — stores UTC+7 directly, no timezone conversion
+> - `JSON` instead of `TEXT[]` and `JSONB` — MySQL 8 has a JSON column type
+> - Foreign keys declared **at the end of the table** using `FOREIGN KEY (...) REFERENCES ...` (not inline as in PostgreSQL)
+> - Each `CREATE TABLE` ends with `CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`
+
+### Table `users`
 ```sql
-users (
-  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+CREATE TABLE users (
+  id            CHAR(36)     PRIMARY KEY DEFAULT (UUID()),
   email         VARCHAR(255) UNIQUE NOT NULL,
   password_hash VARCHAR(255) NOT NULL,
   full_name     VARCHAR(255) NOT NULL,
   phone         VARCHAR(20),
   role          ENUM('student', 'employer', 'admin') NOT NULL,
   avatar_url    TEXT,
-  is_active     BOOLEAN DEFAULT true,
-  created_at    TIMESTAMPTZ DEFAULT NOW(),
-  updated_at    TIMESTAMPTZ DEFAULT NOW()
-)
+  is_active     BOOLEAN      DEFAULT TRUE,
+  created_at    DATETIME     DEFAULT NOW(),
+  updated_at    DATETIME     DEFAULT NOW() ON UPDATE NOW()
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```
+> `ON UPDATE NOW()` — MySQL auto-updates `updated_at` when a row changes; no trigger needed
 
-### Bảng `employer_profiles`
+### Table `employer_profiles`
 ```sql
-employer_profiles (
-  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id       UUID REFERENCES users(id) ON DELETE CASCADE,
+CREATE TABLE employer_profiles (
+  id            CHAR(36)     PRIMARY KEY DEFAULT (UUID()),
+  user_id       CHAR(36)     NOT NULL,
   company_name  VARCHAR(255) NOT NULL,
   address       TEXT,
   description   TEXT,
-  created_at    TIMESTAMPTZ DEFAULT NOW()
-)
+  created_at    DATETIME     DEFAULT NOW(),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```
 
-### Bảng `student_profiles`
+### Table `student_profiles`
 ```sql
-student_profiles (
-  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id         UUID REFERENCES users(id) ON DELETE CASCADE,
-  employer_id     UUID REFERENCES users(id),  -- employer quản lý student này (1 student chỉ thuộc 1 employer)
-  student_id      VARCHAR(50),          -- mã sinh viên
-  university      VARCHAR(255),
-  skills          TEXT[],               -- mảng kỹ năng
+CREATE TABLE student_profiles (
+  id               CHAR(36)     PRIMARY KEY DEFAULT (UUID()),
+  user_id          CHAR(36)     NOT NULL,
+  employer_id      CHAR(36),                   -- employer managing this student (1 student belongs to 1 employer)
+  student_id       VARCHAR(50),                -- student ID number
+  university       VARCHAR(255),
+  skills           JSON,                       -- skills array, e.g.: ["communication","agility"]
   reputation_score DECIMAL(4,2) DEFAULT 100.00,
-  total_shifts_done INT DEFAULT 0,
-  created_at      TIMESTAMPTZ DEFAULT NOW()
-)
+  total_shifts_done INT         DEFAULT 0,
+  created_at       DATETIME     DEFAULT NOW(),
+  FOREIGN KEY (user_id)     REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (employer_id) REFERENCES users(id)
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```
 
-### Bảng `jobs`
+### Table `jobs`
 ```sql
-jobs (
-  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  employer_id     UUID REFERENCES users(id) ON DELETE CASCADE,
-  title           VARCHAR(255) NOT NULL,
+CREATE TABLE jobs (
+  id              CHAR(36)      PRIMARY KEY DEFAULT (UUID()),
+  employer_id     CHAR(36)      NOT NULL,
+  title           VARCHAR(255)  NOT NULL,
   description     TEXT,
   hourly_rate     DECIMAL(10,2) NOT NULL,
-  required_skills TEXT[],
-  max_workers     INT NOT NULL,
+  required_skills JSON,                        -- required skills array
+  max_workers     INT           NOT NULL,
   status          ENUM('active', 'paused', 'closed') DEFAULT 'active',
-  created_at      TIMESTAMPTZ DEFAULT NOW(),
-  updated_at      TIMESTAMPTZ DEFAULT NOW()
-)
+  created_at      DATETIME      DEFAULT NOW(),
+  updated_at      DATETIME      DEFAULT NOW() ON UPDATE NOW(),
+  FOREIGN KEY (employer_id) REFERENCES users(id) ON DELETE CASCADE
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```
 
-### Bảng `shifts`
+### Table `shifts`
 ```sql
-shifts (
-  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  job_id          UUID REFERENCES jobs(id) ON DELETE CASCADE,
-  employer_id     UUID REFERENCES users(id),
+CREATE TABLE shifts (
+  id              CHAR(36)  PRIMARY KEY DEFAULT (UUID()),
+  job_id          CHAR(36)  NOT NULL,
+  employer_id     CHAR(36)  NOT NULL,
   title           VARCHAR(255),
-  start_time      TIMESTAMPTZ NOT NULL,
-  end_time        TIMESTAMPTZ NOT NULL,
-  max_workers     INT NOT NULL,
-  current_workers INT DEFAULT 0,
+  start_time      DATETIME  NOT NULL,
+  end_time        DATETIME  NOT NULL,
+  max_workers     INT       NOT NULL,
+  current_workers INT       DEFAULT 0,
   status          ENUM('open', 'full', 'ongoing', 'completed', 'cancelled') DEFAULT 'open',
-  auto_assign     BOOLEAN DEFAULT false,
-  created_at      TIMESTAMPTZ DEFAULT NOW()
-)
+  auto_assign     BOOLEAN   DEFAULT FALSE,
+  created_at      DATETIME  DEFAULT NOW(),
+  FOREIGN KEY (job_id)      REFERENCES jobs(id) ON DELETE CASCADE,
+  FOREIGN KEY (employer_id) REFERENCES users(id)
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```
 
-### Bảng `shift_registrations`
+### Table `shift_registrations`
 ```sql
-shift_registrations (
-  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  shift_id    UUID REFERENCES shifts(id) ON DELETE CASCADE,
-  student_id  UUID REFERENCES users(id) ON DELETE CASCADE,
-  status      ENUM('pending', 'approved', 'rejected', 'cancelled') DEFAULT 'pending',
-  registered_at TIMESTAMPTZ DEFAULT NOW(),
-  reviewed_at   TIMESTAMPTZ,
-  reviewed_by   UUID REFERENCES users(id),
-  UNIQUE(shift_id, student_id)
-)
+CREATE TABLE shift_registrations (
+  id            CHAR(36)  PRIMARY KEY DEFAULT (UUID()),
+  shift_id      CHAR(36)  NOT NULL,
+  student_id    CHAR(36)  NOT NULL,
+  status        ENUM('pending', 'approved', 'rejected', 'cancelled') DEFAULT 'pending',
+  registered_at DATETIME  DEFAULT NOW(),
+  reviewed_at   DATETIME,
+  reviewed_by   CHAR(36),
+  UNIQUE (shift_id, student_id),
+  FOREIGN KEY (shift_id)    REFERENCES shifts(id) ON DELETE CASCADE,
+  FOREIGN KEY (student_id)  REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (reviewed_by) REFERENCES users(id)
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```
 
-### Bảng `attendance`
+### Table `attendance`
 ```sql
-attendance (
-  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  shift_id        UUID REFERENCES shifts(id),
-  student_id      UUID REFERENCES users(id),
-  check_in_time   TIMESTAMPTZ,
-  check_out_time  TIMESTAMPTZ,
-  status          ENUM('on_time', 'late', 'absent', 'incomplete', 'pending') DEFAULT 'pending',
-  late_minutes    INT DEFAULT 0,        -- phút đến trễ so với shift.start_time
-  early_minutes   INT DEFAULT 0,        -- phút về sớm so với shift.end_time
-  hours_worked    DECIMAL(5,2),         -- = (shift_duration - late_minutes - early_minutes) / 60
-  force_checkout  BOOLEAN DEFAULT FALSE,       -- employer đã force-close ca này
-  force_checkout_by UUID REFERENCES users(id), -- employer_id thực hiện force-checkout
-  note            TEXT,
-  created_at      TIMESTAMPTZ DEFAULT NOW()
-)
--- incomplete = student đã check-in nhưng ca kết thúc mà không check-out; hours_worked = 0
+CREATE TABLE attendance (
+  id                CHAR(36)   PRIMARY KEY DEFAULT (UUID()),
+  shift_id          CHAR(36)   NOT NULL,
+  student_id        CHAR(36)   NOT NULL,
+  check_in_time     DATETIME,
+  check_out_time    DATETIME,
+  status            ENUM('on_time', 'late', 'absent', 'incomplete', 'pending') DEFAULT 'pending',
+  late_minutes      INT        DEFAULT 0,   -- minutes late relative to shift.start_time
+  early_minutes     INT        DEFAULT 0,   -- minutes early relative to shift.end_time
+  hours_worked      DECIMAL(5,2),           -- = shift_duration_hours - (late_minutes + early_minutes) / 60
+  force_checkout    BOOLEAN    DEFAULT FALSE,
+  force_checkout_by CHAR(36),               -- employer_id who performed force-checkout
+  note              TEXT,
+  created_at        DATETIME   DEFAULT NOW(),
+  FOREIGN KEY (shift_id)          REFERENCES shifts(id),
+  FOREIGN KEY (student_id)        REFERENCES users(id),
+  FOREIGN KEY (force_checkout_by) REFERENCES users(id)
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+-- incomplete = student checked in but shift ended without checkout; hours_worked = 0
 ```
 
-### Bảng `payroll`
+### Table `payroll`
 ```sql
-payroll (
-  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  student_id      UUID REFERENCES users(id),
-  employer_id     UUID REFERENCES users(id),
-  period_start    DATE NOT NULL,
-  period_end      DATE NOT NULL,
-  total_hours     DECIMAL(7,2),
-  total_amount    DECIMAL(12,2),  -- = SUM(payroll_items.subtotal)
-  status          ENUM('draft', 'confirmed', 'paid') DEFAULT 'draft',
-  paid_at         TIMESTAMPTZ,
-  created_at      TIMESTAMPTZ DEFAULT NOW()
-)
+CREATE TABLE payroll (
+  id           CHAR(36)      PRIMARY KEY DEFAULT (UUID()),
+  student_id   CHAR(36)      NOT NULL,
+  employer_id  CHAR(36)      NOT NULL,
+  period_start DATE          NOT NULL,
+  period_end   DATE          NOT NULL,
+  total_hours  DECIMAL(7,2),
+  total_amount DECIMAL(12,2),               -- = SUM(payroll_items.subtotal)
+  status       ENUM('draft', 'confirmed', 'paid') DEFAULT 'draft',
+  paid_at      DATETIME,
+  created_at   DATETIME      DEFAULT NOW(),
+  FOREIGN KEY (student_id)  REFERENCES users(id),
+  FOREIGN KEY (employer_id) REFERENCES users(id)
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```
 
-### Bảng `payroll_items` (chi tiết từng ca)
+### Table `payroll_items` (per-shift breakdown)
 ```sql
-payroll_items (
-  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  payroll_id      UUID REFERENCES payroll(id) ON DELETE CASCADE,
-  shift_id        UUID REFERENCES shifts(id),
-  attendance_id   UUID REFERENCES attendance(id),
-  scheduled_hours   DECIMAL(5,2),             -- giờ ca gốc theo lịch (shift_duration)
+CREATE TABLE payroll_items (
+  id                CHAR(36)      PRIMARY KEY DEFAULT (UUID()),
+  payroll_id        CHAR(36)      NOT NULL,
+  shift_id          CHAR(36),
+  attendance_id     CHAR(36),
+  scheduled_hours   DECIMAL(5,2),             -- original scheduled shift duration
   hours_worked      DECIMAL(5,2),             -- = scheduled_hours - (late_minutes + early_minutes)/60
   hourly_rate       DECIMAL(10,2),
-  deduction_minutes INT DEFAULT 0,            -- late_minutes + early_minutes
+  deduction_minutes INT           DEFAULT 0,  -- late_minutes + early_minutes
   deduction_amount  DECIMAL(12,2) DEFAULT 0,  -- = deduction_minutes/60 × hourly_rate
-  subtotal          DECIMAL(12,2)             -- = scheduled_hours × hourly_rate - deduction_amount
-)
+  subtotal          DECIMAL(12,2),            -- = scheduled_hours × hourly_rate - deduction_amount
+  FOREIGN KEY (payroll_id)    REFERENCES payroll(id) ON DELETE CASCADE,
+  FOREIGN KEY (shift_id)      REFERENCES shifts(id),
+  FOREIGN KEY (attendance_id) REFERENCES attendance(id)
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```
 
-### Bảng `notifications`
+### Table `notifications`
 ```sql
-notifications (
-  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id     UUID REFERENCES users(id) ON DELETE CASCADE,
-  type        VARCHAR(50) NOT NULL,  -- shift_approved, payroll_ready, shift_reminder, etc.
-  title       VARCHAR(255) NOT NULL,
-  body        TEXT,
-  is_read     BOOLEAN DEFAULT false,
-  metadata    JSONB,                 -- { shift_id, payroll_id, ... }
-  created_at  TIMESTAMPTZ DEFAULT NOW()
-)
+CREATE TABLE notifications (
+  id         CHAR(36)     PRIMARY KEY DEFAULT (UUID()),
+  user_id    CHAR(36)     NOT NULL,
+  type       VARCHAR(50)  NOT NULL,  -- shift_approved, payroll_ready, shift_reminder, etc.
+  title      VARCHAR(255) NOT NULL,
+  body       TEXT,
+  is_read    BOOLEAN      DEFAULT FALSE,
+  metadata   JSON,                   -- { shift_id, payroll_id, ... }
+  created_at DATETIME     DEFAULT NOW(),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```
 
-### Bảng `ratings`
+### Table `ratings`
 ```sql
-ratings (
-  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  shift_id    UUID REFERENCES shifts(id) ON DELETE CASCADE,
-  student_id  UUID REFERENCES users(id) ON DELETE CASCADE,
-  employer_id UUID REFERENCES users(id) ON DELETE CASCADE,
-  score       INT NOT NULL CHECK (score BETWEEN 1 AND 5),
+CREATE TABLE ratings (
+  id          CHAR(36)  PRIMARY KEY DEFAULT (UUID()),
+  shift_id    CHAR(36)  NOT NULL,
+  student_id  CHAR(36)  NOT NULL,
+  employer_id CHAR(36)  NOT NULL,
+  score       INT       NOT NULL CHECK (score BETWEEN 1 AND 5),
   comment     TEXT,
-  created_at  TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE(shift_id, student_id)  -- mỗi shift chỉ được rate 1 lần
-)
+  created_at  DATETIME  DEFAULT NOW(),
+  UNIQUE (shift_id, student_id),              -- each shift can only be rated once
+  FOREIGN KEY (shift_id)    REFERENCES shifts(id) ON DELETE CASCADE,
+  FOREIGN KEY (student_id)  REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (employer_id) REFERENCES users(id) ON DELETE CASCADE
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```
 
-### Bảng `reputation_events`
+### Table `reputation_events`
 ```sql
-reputation_events (
-  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  student_id  UUID REFERENCES users(id) ON DELETE CASCADE,
-  event_type  VARCHAR(50),  -- on_time_checkin, late_checkin, absent, good_review, etc.
-  delta       DECIMAL(5,2), -- +2.0, -5.0, etc.
-  reason      TEXT,
-  created_at  TIMESTAMPTZ DEFAULT NOW()
-)
+CREATE TABLE reputation_events (
+  id         CHAR(36)     PRIMARY KEY DEFAULT (UUID()),
+  student_id CHAR(36)     NOT NULL,
+  event_type VARCHAR(50),  -- on_time_checkin, late_checkin, absent, good_review, etc.
+  delta      DECIMAL(5,2), -- +2.0, -5.0, etc.
+  reason     TEXT,
+  created_at DATETIME     DEFAULT NOW(),
+  FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```
 
 ---
@@ -333,9 +368,9 @@ reputation_events (
 ## 5. Socket.io Event Map
 
 ### Server → Client Events
-| Event | Payload | Người nhận |
-|-------|---------|------------|
-| `notification:new` | `{ id, type, title, body, metadata }` | User cụ thể |
+| Event | Payload | Recipient |
+|-------|---------|-----------|
+| `notification:new` | `{ id, type, title, body, metadata }` | Specific user |
 | `attendance:update` | `{ shift_id, student_id, status, check_in_time }` | Employer |
 | `shift:registered` | `{ shift_id, student_id, student_name }` | Employer |
 | `shift:approved` | `{ shift_id, registration_id }` | Student |
@@ -345,94 +380,94 @@ reputation_events (
 | `shift:reminder` | `{ shift_id, start_time, job_title }` | Student |
 
 ### Client → Server Events
-| Event | Payload | Mô tả |
-|-------|---------|-------|
-| `join:room` | `{ room: 'user_<id>' }` | User join room cá nhân |
-| `join:shift` | `{ shift_id }` | Employer join room theo dõi ca |
+| Event | Payload | Description |
+|-------|---------|-------------|
+| `join:room` | `{ room: 'user_<id>' }` | User joins personal room |
+| `join:shift` | `{ shift_id }` | Employer joins shift monitoring room |
 
 ---
 
 ## 6. Reputation Score Algorithm
 
-**Điểm khởi đầu**: 100.00 (thang điểm 0–200)
+**Starting score**: 100.00 (scale 0–200)
 
-### Cộng điểm
-| Sự kiện | Delta |
-|---------|-------|
-| Check-in đúng giờ | +2.0 |
-| Hoàn thành đủ ca | +3.0 |
-| Đánh giá tốt từ employer (4–5 sao) | +5.0 |
+### Positive events
+| Event | Delta |
+|-------|-------|
+| On-time check-in | +2.0 |
+| Complete full shift | +3.0 |
+| Good rating from employer (4–5 stars) | +5.0 |
 
-### Trừ điểm
-| Sự kiện | Delta |
-|---------|-------|
-| Đi trễ (1–15 phút) | -2.0 |
-| Đi trễ (>15 phút) | -5.0 |
-| Vắng không báo trước | -10.0 |
-| Huỷ ca sau khi được duyệt (<24h trước ca) | -7.0 |
-| Huỷ ca sau khi được duyệt (≥24h trước ca) | 0 (không phạt) |
-| Đánh giá xấu từ employer (1–2 sao) | -8.0 |
+### Negative events
+| Event | Delta |
+|-------|-------|
+| Late (1–15 minutes) | -2.0 |
+| Late (>15 minutes) | -5.0 |
+| No-show without notice | -10.0 |
+| Cancel approved shift (<24h before start) | -7.0 |
+| Cancel approved shift (≥24h before start) | 0 (no penalty) |
+| Bad rating from employer (1–2 stars) | -8.0 |
 
-> **Lưu ý**: Nếu EMPLOYER huỷ ca (không phải student), student KHÔNG bị trừ điểm reputation.
+> **Note**: If the EMPLOYER cancels the shift (not the student), the student's reputation is NOT affected.
 
-### Ảnh hưởng đến auto-assign
-- Score ≥ 150: Ưu tiên cao nhất
-- Score 100–149: Ưu tiên bình thường
-- Score 50–99: Ưu tiên thấp
-- Score < 50: Tạm khoá tự động đăng ký
+### Effect on auto-assign
+- Score ≥ 150: Highest priority
+- Score 100–149: Normal priority
+- Score 50–99: Low priority
+- Score < 50: Auto-assign blocked
 
 ---
 
 ## 7. Payroll Formula
 
 ```
-scheduled_pay    = shift_duration_hours × hourly_rate      -- lương nếu đi đúng giờ, đủ ca
+scheduled_pay    = shift_duration_hours × hourly_rate      -- pay if on time and full shift
 
-late_deduction   = (late_minutes / 60) × hourly_rate       -- trừ phần đến muộn
-early_deduction  = (early_minutes / 60) × hourly_rate      -- trừ phần về sớm
+late_deduction   = (late_minutes / 60) × hourly_rate       -- deducted for arriving late
+early_deduction  = (early_minutes / 60) × hourly_rate      -- deducted for leaving early
 
 total_pay        = scheduled_pay - late_deduction - early_deduction
-               ≡  hours_worked × hourly_rate               -- tương đương khi implement
+               ≡  hours_worked × hourly_rate               -- equivalent when implemented
 ```
 
-**Quy tắc:**
-- `late_minutes` = check_in_time - shift.start_time (nếu > 0, ngược lại = 0)
-- `early_minutes` = shift.end_time - check_out_time (nếu > 0, ngược lại = 0)
+**Rules:**
+- `late_minutes` = check_in_time - shift.start_time (if > 0, otherwise = 0)
+- `early_minutes` = shift.end_time - check_out_time (if > 0, otherwise = 0)
 - `hours_worked` = shift_duration - (late_minutes + early_minutes) / 60
-- Đi đủ giờ, đúng giờ → `total_pay = scheduled_pay` (không trừ gì)
-- Không có bonus/penalty phần trăm trong payroll
-- Reputation vẫn bị trừ/cộng theo §6 — hoàn toàn tách biệt với lương
-- `incomplete` attendance: `hours_worked = 0`, `total_pay = 0` (không tính lương ca đó)
+- On time and full shift → `total_pay = scheduled_pay` (no deductions)
+- No percentage bonus/penalty in payroll
+- Reputation is still adjusted per §6 — completely separate from pay
+- `incomplete` attendance: `hours_worked = 0`, `total_pay = 0` (shift is unpaid)
 
 ### Payroll Period
-- `period_start` = ngày 1 của tháng hiện tại
-- `period_end` = ngày cuối tháng
-- Auto-create: khi tạo `payroll_item` đầu tiên của tháng, tạo `payroll` record cho tháng đó nếu chưa có
+- `period_start` = 1st of the current month
+- `period_end` = last day of the month
+- Auto-create: when the first `payroll_item` of the month is created, create the `payroll` record for that month if it does not exist
 
 ### Cancel Approved Registration
 ```
-Student cancel registration có status=approved:
+Student cancels a registration with status=approved:
   → registration.status = 'cancelled'
   → shift.current_workers -= 1
-  → Slot mở lại (shift tiếp tục nhận đăng ký mới cho đến max_workers)
-  → Áp dụng reputation penalty theo §6 (≥24h = 0, <24h = -7.0)
+  → Slot reopens (shift continues accepting new registrations up to max_workers)
+  → Apply reputation penalty per §6 (≥24h = 0, <24h = -7.0)
 ```
 
 ### Force-Checkout (Employer)
 ```
-Điều kiện:
-  - NOW() > shift.end_time (ca đã kết thúc)
-  - Student đã check-in nhưng attendance.status = 'incomplete' (chưa checkout)
+Preconditions:
+  - NOW() > shift.end_time (shift has ended)
+  - Student checked in but attendance.status = 'incomplete' (no checkout)
   - employer_id = shift.job.employer_id
 
-Limit: tối đa 3 lần / student / calendar month
-  - Đếm attendance records của student đó có force_checkout=TRUE trong tháng
+Limit: max 3 times / student / calendar month
+  - Count attendance records for that student with force_checkout=TRUE in the current month
 
-Khi thực hiện:
+When executed:
   - check_out_time = NOW()
   - hours_worked = (check_out_time - check_in_time) / 3600
-  - early_minutes = MAX(0, shift.end_time - check_out_time) / 60  -- thường = 0 vì force sau khi ca kết thúc
-  - status = 'on_time' hoặc 'late' (theo late_minutes đã có)
+  - early_minutes = MAX(0, shift.end_time - check_out_time) / 60  -- typically 0 since force occurs after shift ends
+  - status = 'on_time' or 'late' (based on existing late_minutes)
   - force_checkout = TRUE, force_checkout_by = employer_id
-  - Trigger tính lương cho attendance này
+  - Trigger payroll calculation for this attendance record
 ```

@@ -4,42 +4,42 @@
 ## Role
 
 **Persona**: DevOps & Release Engineer
-**Primary Focus**: Docker image definitions, CI/CD pipeline configuration, tính đầy đủ của environment variables, an toàn migration trên production, và release gate checklists.
-**Perspective**: Bạn chịu trách nhiệm về khoảng cách giữa "hoạt động trên máy tôi" và "đang chạy trên production." Mỗi file trong docs set đều có deployment consequences: env var mới, migration mới, test dependency mới. Khi làm việc trong file này, quét các file docs khác để tìm mọi thay đổi kể từ lần release cuối và xác minh deployment implications đã được xử lý ở đây.
+**Primary Focus**: Docker image definitions, CI/CD pipeline configuration, environment variable completeness, safe production migrations, and release gate checklists.
+**Perspective**: You are responsible for the gap between "works on my machine" and "running in production." Every file in the docs set has deployment consequences: new env vars, new migrations, new test dependencies. When working in this file, scan the other docs files for any changes since the last release and verify deployment implications have been addressed here.
 
 ### Responsibilities
-- Duy trì Dockerfile definitions cho backend (multi-stage) và frontend (nginx)
-- Sở hữu docker-compose setup cho cả development và production
-- Định nghĩa và duy trì GitHub Actions CI pipeline (test jobs, E2E job, deploy job)
-- Duy trì production ENV variable checklist (phải đầy đủ tuyệt đối)
-- Định nghĩa quy trình migration deployment an toàn và rollback plan
-- Định nghĩa release checklist (mỗi item phải verifiable, không phải aspirational)
-- Sở hữu health check endpoint contract
+- Maintain Dockerfile definitions for backend (multi-stage) and frontend (nginx)
+- Own docker-compose setup for both development and production
+- Define and maintain the GitHub Actions CI pipeline (test jobs, E2E job, deploy job)
+- Maintain the production ENV variable checklist (must be complete and exhaustive)
+- Define safe migration deployment procedure and rollback plan
+- Define release checklist (every item must be verifiable, not aspirational)
+- Own the health check endpoint contract
 
 ### Cross-Role Awareness
-| Khi bạn làm điều này... | Tham chiếu file này | Vì... |
-|--------------------------|---------------------|-------|
-| Cập nhật ENV checklist | `docs/02-project-init.md` §3 | `.env.example` là nguồn sự thật về vars nào tồn tại |
-| Thêm build step vào Dockerfile | `docs/02-project-init.md` §6 | Package manager và lock file location xác định `npm ci` path đúng |
-| Cấu hình CI migration step | `docs/02-project-init.md` §9 | Thứ tự migration file và DB connection pattern được định nghĩa ở đó |
-| Cấu hình CI chạy tests | `docs/05-testing.md` | Test commands, seed strategy, và env vars cần thiết cho tests được định nghĩa ở đó |
-| Thêm health check configuration | `docs/03-backend.md` | Endpoint `/api/health` phải tồn tại như route thực trong backend |
-| Cập nhật release checklist | tất cả docs files | Mỗi layer (schema, API, frontend, tests) đóng góp release gate items riêng |
-| Cấu hình WebSocket proxy trong nginx | `docs/01-system-design.md` §5 | Socket.io event paths và upgrade requirements được derive từ event map |
+| When you do this... | Reference this file | Because... |
+|---------------------|---------------------|------------|
+| Update ENV checklist | `docs/02-project-init.md` §3 | `.env.example` is the source of truth for which vars exist |
+| Add a build step to Dockerfile | `docs/02-project-init.md` §6 | Package manager and lock file location determine the correct `npm ci` path |
+| Configure CI migration step | `docs/02-project-init.md` §9 | Migration file order and DB connection pattern are defined there |
+| Configure CI to run tests | `docs/05-testing.md` | Test commands, seed strategy, and required env vars are defined there |
+| Add health check configuration | `docs/03-backend.md` | The `/api/health` endpoint must exist as a real route in the backend |
+| Update release checklist | all docs files | Every layer (schema, API, frontend, tests) contributes its own release gate items |
+| Configure WebSocket proxy in nginx | `docs/01-system-design.md` §5 | Socket.io event paths and upgrade requirements are derived from the event map |
 
 ### Files to Consult First
-- `docs/02-project-init.md` — cho env vars, dependency versions, migration ordering
-- `docs/05-testing.md` — cho CI test commands, seed strategy, test account credentials
-- `docs/03-backend.md` — xác nhận health check endpoint spec đã được implement
+- `docs/02-project-init.md` — for env vars, dependency versions, migration ordering
+- `docs/05-testing.md` — for CI test commands, seed strategy, test account credentials
+- `docs/03-backend.md` — confirm the health check endpoint spec has been implemented
 
 ---
 
 ## 1. Environments
 
-| Environment | Mục đích | URL |
-|-------------|----------|-----|
+| Environment | Purpose | URL |
+|-------------|---------|-----|
 | **Development** | Local dev, hot-reload | `localhost:5173` (FE), `localhost:3001` (BE) |
-| **Staging** | Test trước release, giống production | `staging.smart-workforce.com` |
+| **Staging** | Pre-release testing, mirrors production | `staging.smart-workforce.com` |
 | **Production** | Live app | `smart-workforce.com` |
 
 ---
@@ -51,22 +51,25 @@
 version: '3.9'
 
 services:
-  postgres:
-    image: postgres:15-alpine
-    container_name: sw_postgres
+  mysql:
+    image: mysql:8.0
+    container_name: sw_mysql
     environment:
-      POSTGRES_DB: smart_workforce
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      MYSQL_DATABASE: smart_workforce
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_USER: sw_user
+      MYSQL_PASSWORD: sw_password
     ports:
-      - "5432:5432"
+      - "3306:3306"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - mysql_data:/var/lib/mysql
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 5s
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpassword"]
+      interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s  # MySQL 8 starts slower than PostgreSQL, this time is needed
 
   backend:
     build:
@@ -77,16 +80,16 @@ services:
       - "3001:3001"
     environment:
       - NODE_ENV=development
-      - DB_HOST=postgres
-      - DB_PORT=5432
+      - DB_HOST=mysql        # service name in compose
+      - DB_PORT=3306
       - DB_NAME=smart_workforce
-      - DB_USER=postgres
-      - DB_PASSWORD=postgres
+      - DB_USER=sw_user
+      - DB_PASSWORD=sw_password
     volumes:
       - ./backend:/app
       - /app/node_modules
     depends_on:
-      postgres:
+      mysql:
         condition: service_healthy
     command: npm run dev
 
@@ -105,7 +108,7 @@ services:
       - VITE_SOCKET_URL=http://localhost:3001
 
 volumes:
-  postgres_data:
+  mysql_data:
 ```
 
 ### `backend/Dockerfile` (Production)
@@ -188,17 +191,18 @@ jobs:
   backend-test:
     runs-on: ubuntu-latest
     services:
-      postgres:
-        image: postgres:15
+      mysql:
+        image: mysql:8.0
         env:
-          POSTGRES_DB: smart_workforce_test
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
+          MYSQL_DATABASE: smart_workforce_test
+          MYSQL_ROOT_PASSWORD: rootpassword
+          MYSQL_USER: sw_user
+          MYSQL_PASSWORD: sw_password
         options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+          --health-cmd="mysqladmin ping -h localhost -u root -prootpassword"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
 
     steps:
       - uses: actions/checkout@v4
@@ -214,21 +218,21 @@ jobs:
       - name: Run migrations
         run: cd backend && npm run migrate
         env:
-          DB_HOST: localhost
-          DB_PORT: 5432
+          DB_HOST: 127.0.0.1   # use 127.0.0.1 instead of localhost in CI — MySQL on Linux uses Unix socket for "localhost"
+          DB_PORT: 3306
           DB_NAME: smart_workforce_test
-          DB_USER: postgres
-          DB_PASSWORD: postgres
+          DB_USER: sw_user
+          DB_PASSWORD: sw_password
 
       - name: Run backend tests
         run: cd backend && npm test
         env:
           NODE_ENV: test
-          DB_HOST: localhost
-          DB_PORT: 5432
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
           DB_NAME: smart_workforce_test
-          DB_USER: postgres
-          DB_PASSWORD: postgres
+          DB_USER: sw_user
+          DB_PASSWORD: sw_password
           JWT_SECRET: test_secret
 
   frontend-test:
@@ -293,7 +297,7 @@ jobs:
           docker build -t sw-backend:latest ./backend
           docker build -t sw-frontend:latest ./frontend
 
-      # Thêm bước deploy lên server (SSH, Railway, Render, etc.)
+      # Add deployment steps to server (SSH, Railway, Render, etc.)
       - name: Deploy
         run: echo "Add deployment steps here"
 ```
@@ -304,24 +308,24 @@ jobs:
 
 ### Backend Production
 ```
-✅ PORT                  — port server (default 3001)
+✅ PORT                  — server port (default 3001)
 ✅ NODE_ENV              — "production"
-✅ DB_HOST               — PostgreSQL host
-✅ DB_PORT               — PostgreSQL port
-✅ DB_NAME               — tên database
-✅ DB_USER               — user DB
-✅ DB_PASSWORD           — password DB (dùng secrets manager)
-✅ JWT_SECRET            — chuỗi ngẫu nhiên ≥ 32 ký tự
+✅ DB_HOST               — MySQL host
+✅ DB_PORT               — MySQL port (default 3306)
+✅ DB_NAME               — database name
+✅ DB_USER               — MySQL user
+✅ DB_PASSWORD           — DB password (use secrets manager)
+✅ JWT_SECRET            — random string ≥ 32 characters
 ✅ JWT_EXPIRES_IN        — "7d"
-✅ CORS_ORIGIN           — URL frontend production
+✅ CORS_ORIGIN           — production frontend URL
 ✅ CRON_PAYROLL_SCHEDULE — cron expression
 ✅ CRON_REMINDER_SCHEDULE— cron expression
 ```
 
 ### Frontend Production
 ```
-✅ VITE_API_URL          — URL backend API production
-✅ VITE_SOCKET_URL       — URL Socket.io production
+✅ VITE_API_URL          — production backend API URL
+✅ VITE_SOCKET_URL       — production Socket.io URL
 ```
 
 ---
@@ -330,22 +334,22 @@ jobs:
 
 ### Development
 ```bash
-npm run migrate          # chạy tất cả migration mới
+npm run migrate          # run all new migrations
 npm run migrate:down     # rollback 1 migration
 ```
 
 ### Production
-- Migration chạy **trước** khi deploy app mới
-- Luôn chạy migration theo thứ tự số timestamp
-- Không bao giờ sửa migration đã chạy — tạo migration mới để thay đổi schema
-- Backup DB trước mỗi lần migrate production
+- Migrations run **before** deploying the new app version
+- Always run migrations in timestamp order
+- Never edit a migration that has already run — create a new migration to change the schema
+- Back up the DB before every production migration
 
 ### Rollback Plan
 ```bash
-# Nếu migration thất bại:
-npm run migrate:down     # rollback migration vừa chạy
-# Deploy lại version cũ của app
-# Điều tra lỗi → fix migration → deploy lại
+# If migration fails:
+npm run migrate:down     # rollback the migration that just ran
+# Redeploy the old app version
+# Investigate the error → fix the migration → redeploy
 ```
 
 ---
@@ -362,23 +366,23 @@ npm run migrate:down     # rollback migration vừa chạy
 }
 ```
 
-Dùng cho:
+Used for:
 - Docker healthcheck
 - Load balancer health probe
 - Monitoring (Uptime Robot, Better Stack)
 
 ---
 
-## 7. Deployment Checklist (mỗi release)
+## 7. Deployment Checklist (per release)
 
 ```
-□ Tất cả tests pass trên CI
+□ All tests pass in CI
 □ E2E tests pass
-□ Backup database production
-□ Chạy migrations trên production DB
-□ Deploy backend image mới
-□ Verify /api/health trả về 200
-□ Deploy frontend image mới
-□ Smoke test: đăng nhập, tạo shift, checkin
-□ Monitor logs 15 phút sau deploy
+□ Back up production database
+□ Run migrations on production DB
+□ Deploy new backend image
+□ Verify /api/health returns 200
+□ Deploy new frontend image
+□ Smoke test: login, create shift, check in
+□ Monitor logs for 15 minutes after deploy
 ```

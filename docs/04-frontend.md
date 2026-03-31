@@ -4,40 +4,40 @@
 ## Role
 
 **Persona**: Frontend Engineer & UI/UX Architect
-**Primary Focus**: Page routing, component composition, Zustand state design, API integration layer, socket event handling, và user interaction flows.
-**Perspective**: Frontend là consumer của mọi contract do backend và database định nghĩa. Khi làm việc trong file này, luôn hỏi: "Có backend endpoint nào hỗ trợ UI action này không? TypeScript type tôi đang viết có khớp chính xác với API response shape không? Socket event tôi đang lắng nghe có tồn tại trong backend emission logic không?" Không bao giờ thiết kế UI flow đòi hỏi API endpoint chưa tồn tại trong `docs/03-backend.md`.
+**Primary Focus**: Page routing, component composition, Zustand state design, API integration layer, socket event handling, and user interaction flows.
+**Perspective**: The frontend is a consumer of every contract defined by the backend and database. When working in this file, always ask: "Is there a backend endpoint that supports this UI action? Does the TypeScript type I'm writing match the API response shape exactly? Does the socket event I'm listening for exist in the backend emission logic?" Never design a UI flow that requires an API endpoint not yet documented in `docs/03-backend.md`.
 
 ### Responsibilities
-- Định nghĩa và duy trì route map đầy đủ (path → component, auth requirements, role requirements)
-- Đặc tả tất cả Zustand store interfaces: state shape, async actions, persistence behavior
-- Định nghĩa API layer: function nào trong `api/*.ts` module nào map đến backend endpoint nào
-- Đặc tả socket hook behavior: hook nào subscribe event nào, update store nào
-- Định nghĩa UX flows: sequence tương tác người dùng từng bước cho các tính năng chính
-- Đặc tả component props và visual behavior cho feature-specific components
+- Define and maintain the complete route map (path → component, auth requirements, role requirements)
+- Specify all Zustand store interfaces: state shape, async actions, persistence behavior
+- Define the API layer: which function in which `api/*.ts` module maps to which backend endpoint
+- Specify socket hook behavior: which hook subscribes to which event, updates which store
+- Define UX flows: step-by-step user interaction sequences for main features
+- Specify component props and visual behavior for feature-specific components
 
 ### Cross-Role Awareness
-| Khi bạn làm điều này... | Tham chiếu file này | Vì... |
-|--------------------------|---------------------|-------|
-| Thêm page/route mới | `docs/03-backend.md` §2 | Mỗi page fetch data cần endpoint API tương ứng |
-| Thêm Zustand store field mới | `docs/01-system-design.md` | Kiểu field phải khớp DB column type được expose qua API |
-| Thêm `socket.on()` listener | `docs/03-backend.md` §4 | Tên event và payload shape phải khớp chính xác với backend emission |
-| Thêm `socket.on()` listener | `docs/01-system-design.md` §5 | Socket.io event map là danh sách chuẩn tắc của valid events |
-| Thêm role-specific route protection | `docs/03-backend.md` §3 | Tên role trong RoleRoute phải khớp với roleGuard ở API |
-| Thêm form với Zod validation | `docs/03-backend.md` §2 | Zod schema fields phải khớp request body endpoint backend expect |
-| Thêm API function mới | `docs/03-backend.md` §2 | Function phải map đến endpoint đã được document; không tự tạo route |
-| Thêm component hiển thị status badge | `docs/01-system-design.md` | Enum values (shift status, attendance status) được định nghĩa chuẩn tắc ở đó |
+| When you do this... | Reference this file | Because... |
+|---------------------|---------------------|------------|
+| Add a new page/route | `docs/03-backend.md` §2 | Every page that fetches data needs a corresponding API endpoint |
+| Add a new Zustand store field | `docs/01-system-design.md` | Field type must match the DB column type exposed through the API |
+| Add a `socket.on()` listener | `docs/03-backend.md` §4 | Event name and payload shape must exactly match the backend emission |
+| Add a `socket.on()` listener | `docs/01-system-design.md` §5 | Socket.io event map is the canonical list of valid events |
+| Add role-specific route protection | `docs/03-backend.md` §3 | Role names in RoleRoute must match roleGuard at the API |
+| Add a form with Zod validation | `docs/03-backend.md` §2 | Zod schema fields must match the request body the backend endpoint expects |
+| Add a new API function | `docs/03-backend.md` §2 | Function must map to a documented endpoint; do not create routes unilaterally |
+| Add a component that displays a status badge | `docs/01-system-design.md` | Enum values (shift status, attendance status) are canonically defined there |
 
 ### Files to Consult First
-- `docs/03-backend.md` — trước khi viết API call hoặc socket listener, xác minh contract tồn tại
-- `docs/01-system-design.md` — cho enum values, payload shapes, và event names
-- `docs/05-testing.md` — để biết component behavior nào cần Vitest/RTL test coverage
+- `docs/03-backend.md` — before writing an API call or socket listener, verify the contract exists
+- `docs/01-system-design.md` — for enum values, payload shapes, and event names
+- `docs/05-testing.md` — to know which component behaviors need Vitest/RTL test coverage
 
 ---
 
 ## 1. Tech Stack
 
-| Công cụ | Mục đích |
-|---------|----------|
+| Tool | Purpose |
+|------|---------|
 | React 18 + TypeScript | UI framework |
 | Vite | Build tool |
 | Tailwind CSS | Utility-first styling |
@@ -54,50 +54,50 @@
 ## 2. Page / Route Map
 
 ### Public Routes
-| Path | Component | Mô tả |
-|------|-----------|-------|
-| `/login` | `LoginPage` | Đăng nhập (tất cả roles) |
-| `/register` | `RegisterPage` | Đăng ký (chỉ dành cho employer — student không có trang này) |
+| Path | Component | Description |
+|------|-----------|-------------|
+| `/login` | `LoginPage` | Login (all roles) |
+| `/register` | `RegisterPage` | Registration (employer only — students have no registration page) |
 
 ### Student Routes (requires auth + role=student)
-| Path | Component | Mô tả |
-|------|-----------|-------|
-| `/student` | `StudentDashboard` | Tổng quan: ca sắp tới, lương tháng, thông báo |
-| `/student/schedule` | `StudentSchedule` | Lịch làm việc dạng calendar |
-| `/student/shifts` | `StudentShiftList` | Danh sách ca có thể đăng ký |
-| `/student/shifts/:id` | `ShiftDetail` | Chi tiết ca, nút đăng ký |
-| `/student/attendance` | `StudentAttendance` | Lịch sử chấm công, nút check-in/out |
-| `/student/payroll` | `StudentPayroll` | Bảng lương: theo ca / tuần / tháng |
-| `/student/payroll/:id` | `PayrollDetail` | Chi tiết 1 kỳ lương |
-| `/student/notifications` | `NotificationPage` | Tất cả thông báo |
-| `/student/profile` | `ProfilePage` | Thông tin cá nhân, điểm uy tín |
+| Path | Component | Description |
+|------|-----------|-------------|
+| `/student` | `StudentDashboard` | Overview: upcoming shifts, monthly pay, notifications |
+| `/student/schedule` | `StudentSchedule` | Work schedule in calendar view |
+| `/student/shifts` | `StudentShiftList` | List of available shifts to register for |
+| `/student/shifts/:id` | `ShiftDetail` | Shift details, registration button |
+| `/student/attendance` | `StudentAttendance` | Attendance history, check-in/out button |
+| `/student/payroll` | `StudentPayroll` | Payroll: by shift / week / month |
+| `/student/payroll/:id` | `PayrollDetail` | Single payroll period details |
+| `/student/notifications` | `NotificationPage` | All notifications |
+| `/student/profile` | `ProfilePage` | Personal info, reputation score |
 
 ### Employer Routes (requires auth + role=employer)
-| Path | Component | Mô tả |
-|------|-----------|-------|
-| `/employer` | `EmployerDashboard` | Tổng quan: số ca hôm nay, chi phí, attendance |
-| `/employer/employees` | `EmployeeList` | Danh sách nhân viên (student) |
-| `/employer/employees/new` | `EmployeeForm` | Tạo tài khoản nhân viên mới |
-| `/employer/jobs` | `JobList` | Danh sách job |
-| `/employer/jobs/new` | `JobForm` | Tạo job mới |
-| `/employer/jobs/:id` | `JobDetail` | Chi tiết job + danh sách shift |
-| `/employer/jobs/:id/edit` | `JobForm` | Sửa job |
-| `/employer/shifts` | `ShiftList` | Tất cả shift, filter theo job/ngày |
-| `/employer/shifts/new` | `ShiftForm` | Tạo shift |
-| `/employer/shifts/:id` | `ShiftDetail` | Chi tiết ca: danh sách ứng viên, nút Duyệt/Từ chối/Assign thủ công, chấm công, nút đánh giá sau ca |
-| `/employer/attendance` | `AttendanceOverview` | Xem chấm công realtime |
-| `/employer/payroll` | `PayrollList` | Bảng lương theo kỳ |
-| `/employer/payroll/:id` | `PayrollDetail` | Chi tiết kỳ lương, xuất file |
-| `/employer/reports` | `ReportPage` | Thống kê, biểu đồ |
-| `/employer/notifications` | `NotificationPage` | Thông báo |
-| `/employer/profile` | `ProfilePage` | Thông tin công ty |
+| Path | Component | Description |
+|------|-----------|-------------|
+| `/employer` | `EmployerDashboard` | Overview: shifts today, costs, attendance |
+| `/employer/employees` | `EmployeeList` | Employee (student) list |
+| `/employer/employees/new` | `EmployeeForm` | Create new employee account |
+| `/employer/jobs` | `JobList` | Job list |
+| `/employer/jobs/new` | `JobForm` | Create new job |
+| `/employer/jobs/:id` | `JobDetail` | Job details + shift list |
+| `/employer/jobs/:id/edit` | `JobForm` | Edit job |
+| `/employer/shifts` | `ShiftList` | All shifts, filter by job/date |
+| `/employer/shifts/new` | `ShiftForm` | Create shift |
+| `/employer/shifts/:id` | `ShiftDetail` | Shift details: applicant list, Approve/Reject/Assign buttons, attendance, post-shift rating button |
+| `/employer/attendance` | `AttendanceOverview` | View attendance in real-time |
+| `/employer/payroll` | `PayrollList` | Payroll by period |
+| `/employer/payroll/:id` | `PayrollDetail` | Payroll period details, export file |
+| `/employer/reports` | `ReportPage` | Statistics, charts |
+| `/employer/notifications` | `NotificationPage` | Notifications |
+| `/employer/profile` | `ProfilePage` | Company information |
 
 ### Admin Routes (requires auth + role=admin)
-| Path | Component | Mô tả |
-|------|-----------|-------|
-| `/admin` | `AdminDashboard` | Thống kê hệ thống |
-| `/admin/users` | `UserList` | Quản lý tất cả user |
-| `/admin/jobs` | `AdminJobList` | Xem tất cả job |
+| Path | Component | Description |
+|------|-----------|-------------|
+| `/admin` | `AdminDashboard` | System statistics |
+| `/admin/users` | `UserList` | Manage all users |
+| `/admin/jobs` | `AdminJobList` | View all jobs |
 
 ---
 
@@ -107,14 +107,14 @@
 ```
 Button.tsx         — variants: primary, secondary, danger, ghost
 Input.tsx          — with label, error message, icon support
-Modal.tsx          — overlay modal với backdrop
+Modal.tsx          — overlay modal with backdrop
 Badge.tsx          — status badge (on_time/late/absent, open/full, etc.)
-Avatar.tsx         — user avatar với fallback initials
+Avatar.tsx         — user avatar with fallback initials
 Spinner.tsx        — loading indicator
 Table.tsx          — sortable, paginated table
 Pagination.tsx     — page navigation
-EmptyState.tsx     — khi không có dữ liệu
-ConfirmDialog.tsx  — xác nhận trước action nguy hiểm
+EmptyState.tsx     — when no data is available
+ConfirmDialog.tsx  — confirmation before destructive actions
 Toast.tsx          — success/error/info notifications
 ```
 
@@ -122,37 +122,37 @@ Toast.tsx          — success/error/info notifications
 ```
 Navbar/
   Navbar.tsx         — top nav: user info, notification bell, logout
-  NotificationBell.tsx — badge số chưa đọc, dropdown 5 thông báo gần nhất
+  NotificationBell.tsx — unread count badge, dropdown of 5 most recent notifications
 
 Sidebar/
-  Sidebar.tsx        — navigation theo role
+  Sidebar.tsx        — role-based navigation
 
 Calendar/
   ShiftCalendar.tsx  — react-big-calendar wrapper, custom event renderer
-  ShiftEvent.tsx     — hiển thị 1 ca trong calendar: title, time, status badge
+  ShiftEvent.tsx     — renders a single shift in the calendar: title, time, status badge
 
 Notification/
-  NotificationItem.tsx — 1 dòng thông báo: icon theo type, title, time
-  NotificationList.tsx — danh sách cuộn
+  NotificationItem.tsx — single notification row: icon by type, title, timestamp
+  NotificationList.tsx — scrollable list
 ```
 
 ### Feature Components
 ```
 shifts/
-  ShiftCard.tsx          — card 1 shift: job title, time, slots còn lại, nút đăng ký
-  ShiftRegistrationList.tsx — danh sách ứng viên + nút approve/reject (employer)
+  ShiftCard.tsx          — shift card: job title, time, remaining slots, register button
+  ShiftRegistrationList.tsx — applicant list + approve/reject buttons (employer)
 
 attendance/
-  CheckInButton.tsx      — detect shift hiện tại, nút check-in/out lớn
-  AttendanceRow.tsx      — 1 dòng lịch sử: ca, giờ, status badge
+  CheckInButton.tsx      — detects current shift, large check-in/out button
+  AttendanceRow.tsx      — single history row: shift, time, status badge
 
 payroll/
-  PayrollSummaryCard.tsx — tổng lương kỳ này: giờ, base, bonus, penalty, tổng
-  PayrollItemRow.tsx     — chi tiết từng ca trong kỳ lương
+  PayrollSummaryCard.tsx — period payroll summary: hours, base, bonus, penalty, total
+  PayrollItemRow.tsx     — per-shift breakdown within a payroll period
 
 reports/
-  StatsCard.tsx          — số liệu: total shifts, total hours, cost
-  BarChart.tsx           — biểu đồ cột (dùng Recharts hoặc Chart.js)
+  StatsCard.tsx          — metrics: total shifts, total hours, cost
+  BarChart.tsx           — bar chart (using Recharts or Chart.js)
 ```
 
 ---
@@ -178,7 +178,7 @@ interface NotificationStore {
   fetchNotifications: () => Promise<void>
   markRead: (id: string) => Promise<void>
   markAllRead: () => Promise<void>
-  addNotification: (n: Notification) => void  // gọi từ socket event
+  addNotification: (n: Notification) => void  // called from socket event
 }
 ```
 
@@ -208,30 +208,30 @@ interface AttendanceStore {
 
 ## 5. Calendar View Specification
 
-Dùng `react-big-calendar` với `date-fns` localizer.
+Uses `react-big-calendar` with `date-fns` localizer.
 
-### Chế độ hiển thị
-- **Month view**: xem tổng quan tháng, chấm nhỏ mỗi ngày có ca
-- **Week view**: hiển thị đầy đủ block thời gian mỗi ca (default view)
-- **Day view**: chi tiết 1 ngày
+### Display modes
+- **Month view**: monthly overview, small dot on days with shifts
+- **Week view**: full time blocks for each shift (default view)
+- **Day view**: single day details
 
 ### Event Rendering (ShiftEvent)
 ```
 ┌─────────────────────────────┐
 │ [badge: approved]           │
-│ Ca sáng - Phục vụ quán café │
+│ Morning Shift - Cafe Service│
 │ 08:00 – 12:00               │
 └─────────────────────────────┘
 ```
-Màu theo status:
-- `pending` → màu vàng
-- `approved` → màu xanh lá
-- `rejected` → màu đỏ
-- `open` (shift chưa đăng ký) → màu xám
+Color by status:
+- `pending` → yellow
+- `approved` → green
+- `rejected` → red
+- `open` (shift not yet registered) → gray
 
 ### Conflict Highlight
-- Khi student hover vào 1 shift để đăng ký, hệ thống gọi API check conflict
-- Nếu conflict: event block bị tô đỏ, tooltip "Trùng ca với [tên ca]"
+- When a student hovers over a shift to register, the system calls the API to check for conflicts
+- If conflict: event block turns red, tooltip "Conflicts with [shift name]"
 
 ---
 
@@ -239,7 +239,7 @@ Màu theo status:
 
 ### `useSocket.ts`
 ```typescript
-// Khởi tạo socket, join room user, cleanup khi unmount
+// Initialize socket, join user room, cleanup on unmount
 function useSocket() {
   const { user, token } = useAuthStore()
   useEffect(() => {
@@ -252,9 +252,9 @@ function useSocket() {
 
 ### `useNotificationSocket.ts`
 ```typescript
-// Lắng nghe event notification:new
-// Gọi addNotification(data) vào store
-// Hiển thị Toast
+// Listen for notification:new event
+// Call addNotification(data) into store
+// Show Toast
 socket.on('notification:new', (data) => {
   addNotification(data)
   toast.info(data.title)
@@ -263,8 +263,8 @@ socket.on('notification:new', (data) => {
 
 ### `useAttendanceSocket.ts` (Employer)
 ```typescript
-// Lắng nghe event attendance:update
-// Cập nhật danh sách chấm công realtime trên UI
+// Listen for attendance:update event
+// Update attendance list in real-time on UI
 socket.on('attendance:update', (data) => {
   updateAttendanceRecord(data)
 })
@@ -274,53 +274,53 @@ socket.on('attendance:update', (data) => {
 
 ## 7. UI/UX Flows
 
-### 7.1 Student — Đăng ký ca
+### 7.1 Student — Register for a Shift
 ```
-1. Vào /student/schedule hoặc /student/shifts
-2. Xem danh sách ca open, filter theo ngày/job
-3. Click vào ca → xem ShiftDetail
-4. Click "Đăng ký" → API gọi POST /shifts/:id/register
-5. Nếu OK → badge chuyển "Chờ duyệt", toast thành công
-6. Nếu conflict → toast lỗi + highlight ca bị trùng
-7. Nhận notification khi được duyệt → badge chuyển "Đã duyệt"
+1. Go to /student/schedule or /student/shifts
+2. View list of open shifts, filter by date/job
+3. Click a shift → view ShiftDetail
+4. Click "Register" → API calls POST /shifts/:id/register
+5. If OK → badge changes to "Pending", success toast
+6. If conflict → error toast + highlight conflicting shift
+7. Receive notification when approved → badge changes to "Approved"
 ```
 
-### 7.2 Student — Check-in
+### 7.2 Student — Check In
 ```
-1. Vào /student/attendance
-2. Hiển thị ca hiện tại (nếu đang trong giờ làm)
-3. Nút "CHECK IN" lớn
+1. Go to /student/attendance
+2. Current shift is displayed (if currently within shift hours)
+3. Large "CHECK IN" button
 4. Click → POST /attendance/checkin
-5. Hiển thị status: "Đúng giờ ✓" hoặc "Đi trễ X phút"
-6. Nút chuyển thành "CHECK OUT"
+5. Show status: "On time ✓" or "Late X minutes"
+6. Button changes to "CHECK OUT"
 ```
 
-### 7.3 Student — Xem lương
+### 7.3 Student — View Payroll
 ```
-1. Vào /student/payroll
-2. Tabs: Theo ca | Theo tuần | Theo tháng
-3. Mỗi tab hiển thị: tổng giờ, tổng tiền, bonus, penalty
-4. Click vào kỳ lương → PayrollDetail: bảng từng ca
-```
-
-### 7.4 Employer — Tạo ca + duyệt ứng viên
-```
-1. Vào /employer/shifts/new → điền ShiftForm
-2. Chọn job, thời gian, số lượng, auto-assign on/off
-3. Submit → shift tạo xong, hiển thị trong /employer/shifts
-4. Vào shift detail → tab "Ứng viên"
-5. Danh sách pending registrations
-6. Click "Duyệt" → PATCH /shifts/:id/registrations/:reg_id
-7. Student nhận notification ngay qua Socket.io
+1. Go to /student/payroll
+2. Tabs: By Shift | By Week | By Month
+3. Each tab shows: total hours, total pay, bonus, penalty
+4. Click on a payroll period → PayrollDetail: per-shift breakdown
 ```
 
-### 7.5 Employer — Xem chấm công realtime
+### 7.4 Employer — Create Shift + Approve Applicants
 ```
-1. Vào /employer/attendance
-2. Chọn ca đang diễn ra từ dropdown
-3. Danh sách nhân viên cập nhật realtime khi có check-in
-4. Màu xanh: đúng giờ | Màu vàng: trễ | Màu đỏ: vắng
-5. Employer có thể ghi chú thủ công
+1. Go to /employer/shifts/new → fill ShiftForm
+2. Select job, time, capacity, auto-assign on/off
+3. Submit → shift created, shown in /employer/shifts
+4. Go to shift detail → "Applicants" tab
+5. List of pending registrations
+6. Click "Approve" → PATCH /shifts/:id/registrations/:reg_id
+7. Student receives notification immediately via Socket.io
+```
+
+### 7.5 Employer — View Real-time Attendance
+```
+1. Go to /employer/attendance
+2. Select the ongoing shift from dropdown
+3. Employee list updates in real-time as check-ins occur
+4. Green: on time | Yellow: late | Red: absent
+5. Employer can add manual notes
 ```
 
 ---
@@ -329,11 +329,11 @@ socket.on('attendance:update', (data) => {
 
 ### `apiClient.ts`
 ```typescript
-// Axios instance với baseURL, interceptor tự động gắn token
-// Interceptor response: nếu 401 → clear auth store → redirect /login
+// Axios instance with baseURL, interceptor to auto-attach token
+// Response interceptor: on 401 → clear auth store → redirect /login
 ```
 
-### Phân theo module
+### Modules
 ```
 api/
   auth.ts         → register, login, getMe, updateProfile
@@ -351,8 +351,8 @@ api/
 ## 9. Route Protection
 
 ```typescript
-// ProtectedRoute.tsx — redirect về /login nếu chưa đăng nhập
-// RoleRoute.tsx — redirect về /unauthorized nếu sai role
+// ProtectedRoute.tsx — redirect to /login if not authenticated
+// RoleRoute.tsx — redirect to /unauthorized if wrong role
 
 <Routes>
   <Route path="/login" element={<LoginPage />} />
