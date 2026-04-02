@@ -1,12 +1,13 @@
-Tôi sắp làm việc với: $ARGUMENTS
+I am about to work with: $ARGUMENTS
 
-Đây là phần nhạy cảm của hệ thống. Hãy:
+This is a sensitive area of the system. Please:
 
-1. Đọc `docs/system-overview.md` — sections "2. The Four Contracts", "3. Authentication & Authorization Flow", và "5. Critical Business Rules"
-2. Xác định "$ARGUMENTS" thuộc loại nào và đọc thêm:
-   - **Auth / JWT / Role**: Đọc thêm `docs/03-backend.md` §3 và `docs/04-frontend.md` §4, §8, §9 — kiểm tra auth flow cross-layer
-   - **Enum values**: Contract A binding — enum xuất hiện đồng thời ở DB schema, Zod validation, TypeScript type, Badge.tsx color map, test assertions
-   - **Socket.io events**: Contract C là three-file contract — bắt buộc update `01-system-design.md` §5, `03-backend.md` §4, `04-frontend.md` §6 cùng lúc
-   - **Business rule constants**: Contract D — thay đổi constant phải đồng bộ cả implementation lẫn test assertions ngay lập tức
-3. Liệt kê cụ thể những điểm nào cần kiểm tra TRƯỚC khi thực hiện thay đổi
-4. Đưa ra cảnh báo nếu thay đổi có thể gây side effects không mong muốn trên các layer khác
+1. Read `docs/system-overview.md` — sections "2. The Four Contracts", "3. Authentication & Authorization Flow", and "5. Critical Business Rules"
+2. Identify which category "$ARGUMENTS" belongs to and read further:
+   - **Auth / JWT / Role**: Read `docs/03-backend.md` §3 and `docs/04-frontend.md` §4, §8, §9 — verify the auth flow cross-layer
+   - **Enum values**: Contract A binding — the enum appears simultaneously in DB schema, Zod validation, TypeScript type, Badge.tsx color map, and test assertions. Also check the corresponding interface in `docs/08-api-and-interfaces.md` §2.1 because the type literal must match.
+   - **API endpoint or TypeScript interface**: Read `docs/08-api-and-interfaces.md` — Section 1 to see the current shape of existing endpoints, Section 2 to see which interfaces are already defined. Contract B binding: endpoint changes must be synced with the interface in §2.2 (API Response Shapes) and the function in `frontend/src/api/*.ts`.
+   - **Socket.io events**: Contract C is a three-file contract — must update `01-system-design.md` §5, `03-backend.md` §4, and `04-frontend.md` §6 simultaneously
+   - **Business rule constants**: Contract D — changing a constant must sync both the implementation and test assertions immediately
+3. List specifically what needs to be checked BEFORE making the change
+4. Warn if the change could cause unexpected side effects on other layers

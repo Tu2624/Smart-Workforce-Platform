@@ -19,6 +19,7 @@
 |---------------------|---------------------|------------|
 | Add or change an endpoint | `docs/04-frontend.md` §8 | Corresponding function in `src/api/*.ts` must be added/updated |
 | Change field name or type in response | `docs/04-frontend.md` §4 | Zustand store interfaces and TypeScript types depend on exact field names |
+| Add or change an endpoint or response shape | `docs/08-api-and-interfaces.md` §1, §2.2 | Endpoint table and API response shapes must stay in sync with implementation |
 | Add new Socket.io event (server → client) | `docs/04-frontend.md` §6 | `socket.on()` handler must be added to the corresponding frontend hook |
 | Add new role guard to a route | `docs/04-frontend.md` §9 | `RoleRoute` and `ProtectedRoute` enforce the same role at the UI level |
 | Change business rule (conflict, late, absent) | `docs/01-system-design.md` | Canonical rule definition lives there; must stay consistent |
@@ -30,6 +31,7 @@
 - `docs/01-system-design.md` — verify DB schema supports the query being written
 - `docs/04-frontend.md` — confirm response shape matches TypeScript types before finalizing contract
 - `docs/05-testing.md` — ensure a corresponding test exists or needs to be added for new endpoints
+- `docs/08-api-and-interfaces.md` — quick-ref for current endpoint list (§1) and response shapes already documented (§2.2); update here when adding/changing endpoints
 
 ---
 

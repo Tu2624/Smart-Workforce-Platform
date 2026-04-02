@@ -249,6 +249,7 @@ Use this order to avoid inconsistencies when implementing.
 - [ ] Document any new socket events emitted: event name, payload, target room.
 - [ ] Document any new or modified background job logic.
 - [ ] Document any new business rule implementations.
+- [ ] If this feature adds or changes an endpoint: update `docs/08-api-and-interfaces.md` Section 1 (add row to endpoint table with ✅/🔲 status).
 
 **Step 4 — Frontend** (`docs/04-frontend.md`)
 - [ ] Add new routes to the route map.
@@ -256,6 +257,7 @@ Use this order to avoid inconsistencies when implementing.
 - [ ] Add API module functions for each new endpoint.
 - [ ] Add socket hook logic for any new events.
 - [ ] Document the UX flow for user-facing features.
+- [ ] If this feature adds or changes a TypeScript interface: update `docs/08-api-and-interfaces.md` Section 2 (add to §2.1 core models or §2.2 response shapes).
 
 **Step 5 — Testing** (`docs/05-testing.md`)
 - [ ] Add unit test cases for new utility functions.

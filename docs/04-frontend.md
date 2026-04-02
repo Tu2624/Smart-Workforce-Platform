@@ -25,12 +25,14 @@
 | Add role-specific route protection | `docs/03-backend.md` §3 | Role names in RoleRoute must match roleGuard at the API |
 | Add a form with Zod validation | `docs/03-backend.md` §2 | Zod schema fields must match the request body the backend endpoint expects |
 | Add a new API function | `docs/03-backend.md` §2 | Function must map to a documented endpoint; do not create routes unilaterally |
+| Add or use a TypeScript interface | `docs/08-api-and-interfaces.md` §2.1 | All core interfaces are defined there first; do not redefine them locally |
 | Add a component that displays a status badge | `docs/01-system-design.md` | Enum values (shift status, attendance status) are canonically defined there |
 
 ### Files to Consult First
 - `docs/03-backend.md` — before writing an API call or socket listener, verify the contract exists
 - `docs/01-system-design.md` — for enum values, payload shapes, and event names
 - `docs/05-testing.md` — to know which component behaviors need Vitest/RTL test coverage
+- `docs/08-api-and-interfaces.md` — Section 2.1 for TypeScript interface definitions; Section 2.2 for API response shapes; write `frontend/src/types/index.ts` from here
 
 ---
 

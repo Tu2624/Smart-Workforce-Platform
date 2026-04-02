@@ -1,11 +1,12 @@
-Tôi sắp implement feature: $ARGUMENTS
+I am about to implement the feature: $ARGUMENTS
 
-Hãy thực hiện các bước sau:
+Follow these steps:
 
-1. Đọc `docs/system-overview.md` — tập trung vào section "4. Feature Impact Matrix" và "8. How to Add a New Feature (Checklist)"
-2. Dựa vào tên feature "$ARGUMENTS", xác định:
-   - Loại thay đổi nào sẽ xảy ra (bảng DB mới? endpoint mới? component mới? socket event mới?...)
-   - Đánh dấu những files nào là BẮT BUỘC cập nhật theo Feature Impact Matrix
-3. Đọc các docs files liên quan để hiểu rõ context hiện tại của phần sẽ implement
-4. Tạo checklist 6 bước cụ thể cho feature này (Design → Infrastructure → Backend → Frontend → Testing → Deployment), chỉ giữ lại những bước thực sự cần thiết, bỏ qua bước không áp dụng
-5. Chỉ ra ngay các cross-cutting contracts nào (A/B/C/D) sẽ bị ảnh hưởng và điểm cần chú ý cụ thể
+1. Read `docs/system-overview.md` — focus on section "4. Feature Impact Matrix" and "8. How to Add a New Feature (Checklist)"
+2. Based on the feature name "$ARGUMENTS", identify:
+   - What types of changes will occur (new DB table? new endpoint? new component? new socket event?...)
+   - Mark which files are REQUIRED to update according to the Feature Impact Matrix
+3. If the feature needs a new endpoint, changes to request/response, or a new interface: **read `docs/08-api-and-interfaces.md`** — Section 1 to see the current endpoint list, Section 2 to see which interfaces are already defined and which are missing. This step is mandatory to avoid creating duplicate endpoints or conflicting interfaces.
+4. Read other relevant docs files to understand the current context
+5. Create a concrete 6-step checklist for this feature (Design → Infrastructure → Backend → Frontend → Testing → Deployment), keeping only the steps that truly apply and skipping steps that don't. If the Feature Impact Matrix marks `08-api-interfaces` as REQUIRED, **include a step to update `docs/08-api-and-interfaces.md`** in the checklist (add endpoint to Section 1 and/or interface to Section 2).
+6. Immediately identify which cross-cutting contracts (A/B/C/D) will be affected and the specific points to watch out for

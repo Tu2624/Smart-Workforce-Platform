@@ -1,17 +1,21 @@
-Hãy kiểm tra tính nhất quán cross-layer của công việc vừa thực hiện.
+Check the cross-layer consistency of the work just completed.
 
-Thực hiện theo thứ tự:
+Follow this order:
 
-1. Đọc `docs/system-overview.md` — section "2. The Four Contracts" và "4. Feature Impact Matrix"
-2. Với mỗi Contract (A, B, C, D), kiểm tra:
-   - **Contract A** (DB Schema ↔ API Response): Có cột DB nào mới/đổi mà API response shape chưa phản ánh không?
-   - **Contract B** (API Endpoint ↔ Frontend API Module): Có endpoint nào mới/đổi mà `frontend/src/api/*.ts` chưa cập nhật không?
-   - **Contract C** (Socket.io Event ↔ Frontend Hook): Có event nào mới/đổi mà frontend socket hook chưa lắng nghe không?
-   - **Contract D** (Business Rule ↔ Test Assertion): Có constant nào thay đổi mà test assertions chưa cập nhật không?
-3. Kiểm tra Feature Impact Matrix — với những thay đổi đã làm, có file nào đánh dấu BẮT BUỘC nhưng chưa được cập nhật không?
-4. Đưa ra danh sách kết quả rõ ràng:
-   - ✅ đã đồng bộ
-   - ⚠️ cần kiểm tra thêm (nêu lý do)
-   - ❌ đang vi phạm contract (nêu cụ thể cần làm gì)
+1. Read `docs/system-overview.md` — section "2. The Four Contracts" and "4. Feature Impact Matrix"
+2. Read `docs/08-api-and-interfaces.md` — this is the quick source of truth for the endpoint list and TypeScript interfaces
+3. For each Contract (A, B, C, D), check:
+   - **Contract A** (DB Schema ↔ API Response): Are there any new/changed DB columns that the API response shape doesn't yet reflect?
+   - **Contract B** (API Endpoint ↔ Frontend API Module): Are there any new/changed endpoints where (a) `docs/08-api-and-interfaces.md` Section 1 hasn't been updated, or (b) `frontend/src/api/*.ts` doesn't have a corresponding function? Check both sides.
+   - **Contract C** (Socket.io Event ↔ Frontend Hook): Are there any new/changed events that the frontend socket hook isn't listening for?
+   - **Contract D** (Business Rule ↔ Test Assertion): Are there any changed constants where test assertions haven't been updated?
+4. Check `docs/08-api-and-interfaces.md` separately:
+   - Are there any interfaces in Section 2 that are still missing (not yet in `frontend/src/types/`) but the feature just implemented needs them immediately?
+   - Are there any endpoints just added/changed that aren't yet reflected in Section 1?
+5. Check the Feature Impact Matrix — for the changes just made, are there any files marked REQUIRED that haven't been updated?
+6. Report results clearly:
+   - ✅ in sync
+   - ⚠️ needs further checking (state reason)
+   - ❌ contract violation (state specifically what needs to be done)
 
 $ARGUMENTS

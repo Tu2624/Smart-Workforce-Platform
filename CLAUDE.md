@@ -6,6 +6,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Smart Workforce Platform** — A part-time workforce management system for students. Three roles: `admin`, `employer`, `student`. Built as a monorepo with separate `backend/` and `frontend/` directories.
 
+## Current Status
+
+The `backend/` and `frontend/` directories do not yet exist — the project is in the **documentation/planning phase**. All specs are in `docs/`; implementation has not started. When scaffolding begins, follow `docs/02-project-init.md` for migration order (FK dependencies matter).
+
 ## Commands
 
 ### First-time setup
@@ -72,9 +76,9 @@ Modules: `auth`, `job`, `shift`, `attendance`, `payroll`, `notification`, `repor
 **Realtime** — Socket.io initialized in `src/config/socket.ts`. Use `notifyUser(userId, event, data)` or `notifyShiftRoom(shiftId, event, data)` from any service. Clients join personal rooms (`user_<id>`) and shift rooms (`shift_<id>`).
 
 **Background jobs** (`src/jobs/`):
-- `autoAssignShift.ts` — cron `0 0 * * 1` (0:00 thứ Hai); auto-assign pending registrations
-- `autoCalcPayroll.ts` — triggered real-time sau checkout; fallback cron `0 0 * * *`
-- `sendReminders.ts` — cron `*/30 * * * *`; tích hợp `autoDetectAbsent` và `lowRegistrationAlert`
+- `autoAssignShift.ts` — cron `0 0 * * 1` (Monday 00:00); auto-assign pending registrations
+- `autoCalcPayroll.ts` — triggered real-time after checkout; fallback cron `0 0 * * *`
+- `sendReminders.ts` — cron `*/30 * * * *`; integrates `autoDetectAbsent` and `lowRegistrationAlert`
 
 **Utilities** (`src/utils/`):
 - `conflictCheck.ts` — shift overlap detection
@@ -106,6 +110,7 @@ All specs live in `docs/`. When implementing a feature, **start here before writ
 | `docs/05-testing.md` | Unit/integration/E2E test cases, seed data, coverage targets |
 | `docs/06-deployment.md` | Docker config, CI/CD, ENV production checklist, release gates |
 | `docs/07-mysql-guide.md` | MySQL 8 setup, syntax differences from PostgreSQL, charset/UUID/DATETIME guidance |
+| `docs/08-api-and-interfaces.md` | Quick-reference index of all API endpoints (✅/🔲 status) and TypeScript interfaces derived from DB schema |
 | `docs/system-overview.md` | Cross-layer contracts, feature impact matrix, decisions log |
 
 Use the **Feature Impact Matrix** in `docs/system-overview.md` to identify which docs files to update for any given change.
@@ -182,48 +187,48 @@ See `docs/system-overview.md §9` for the full decisions log (22 confirmed archi
 
 ## Skills (Slash Commands)
 
-Ba lệnh tắt để làm việc đúng quy trình. Gõ trực tiếp trong Claude Code chat.
+Three shortcut commands for working correctly. Type directly in the Claude Code chat.
 
-### `/feature <tên feature>`
-**Dùng khi**: Bắt đầu implement bất kỳ feature nào — kể cả nhỏ.
+### `/feature <feature name>`
+**When to use**: Before implementing any feature — even small ones.
 
-Skill này đọc `docs/system-overview.md`, tra Feature Impact Matrix, và tạo checklist 6 bước cụ thể cho feature đó. Đây là bước bắt buộc trước khi code.
+Reads `docs/system-overview.md`, consults the Feature Impact Matrix, and generates a concrete 6-step checklist for that feature. Required step before writing code.
 
 ```
-/feature auth và đăng ký tài khoản
-/feature quản lý ca làm (shift CRUD)
-/feature check-in check-out với late detection
-/feature tính lương tự động
+/feature auth and account registration
+/feature shift management (shift CRUD)
+/feature check-in check-out with late detection
+/feature automatic payroll calculation
 ```
 
 ### `/check`
-**Dùng khi**: Trước khi `git commit` — sau khi xong một feature hoặc một phần lớn.
+**When to use**: Before `git commit` — after completing a feature or a major section.
 
-Verify 4 cross-layer contracts (DB↔API, API↔Frontend, Socket↔Hook, Rule↔Test) chưa bị break. Báo cáo ✅ / ⚠️ / ❌ cho từng contract.
+Verifies that the 4 cross-layer contracts (DB↔API, API↔Frontend, Socket↔Hook, Rule↔Test) are not broken. Reports ✅ / ⚠️ / ❌ for each contract.
 
 ```
 /check
-/check sau khi thêm enum value mới cho shift status
+/check after adding a new enum value for shift status
 ```
 
 ### `/contracts <topic>`
-**Dùng khi**: Chạm vào 4 điểm nhạy cảm nhất — auth/JWT, enum values, Socket.io events, business rule constants.
+**When to use**: When touching the 4 most sensitive areas — auth/JWT, enum values, Socket.io events, business rule constants.
 
-Load cross-layer awareness và liệt kê cụ thể những gì cần kiểm tra trước khi thay đổi.
+Loads cross-layer awareness and lists exactly what to check before making changes.
 
 ```
-/contracts JWT token và role guard
+/contracts JWT token and role guard
 /contracts attendance.status enum
 /contracts socket event shift:approved
-/contracts payroll bonus penalty formula
+/contracts payroll deduction formula
 ```
 
-### Workflow thực tế cho mỗi feature
+### Workflow for each feature
 
 ```
-1. /feature <tên>          ← đọc context, nhận checklist
+1. /feature <name>         ← read context, get checklist
 2. ... implement code ...
-3. /contracts <topic>      ← khi chạm auth/enum/socket/rule
-4. /check                  ← trước khi commit
+3. /contracts <topic>      ← when touching auth/enum/socket/rule
+4. /check                  ← before committing
 5. git commit
 ```
