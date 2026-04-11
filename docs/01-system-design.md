@@ -197,7 +197,7 @@ CREATE TABLE student_profiles (
   student_id       VARCHAR(50),                -- student ID number
   university       VARCHAR(255),
   skills           JSON,                       -- skills array, e.g.: ["communication","agility"]
-  reputation_score DECIMAL(4,2) DEFAULT 100.00,
+  reputation_score DECIMAL(5,2) DEFAULT 100.00,
   total_shifts_done INT         DEFAULT 0,
   created_at       DATETIME     DEFAULT NOW(),
   FOREIGN KEY (user_id)     REFERENCES users(id) ON DELETE CASCADE,
