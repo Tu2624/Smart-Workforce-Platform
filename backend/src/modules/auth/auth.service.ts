@@ -1,3 +1,4 @@
+// @ts-ignore
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import { v4 as uuidv4 } from 'uuid'
@@ -30,12 +31,10 @@ export class AuthService {
 
       await connection.commit()
 
-      const token = jwt.sign({ id: userId, email, role: 'employer' }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN })
+      const token = jwt.sign({ id: userId, email, role: 'employer' }, JWT_SECRET as jwt.Secret, { expiresIn: JWT_EXPIRES_IN as any })
       
-      return {
-        user: { id: userId, email, full_name, role: 'employer' },
-        token
-      }
+      const user = await this.getMe(userId, 'employer')
+      return { user, token }
     } catch (error) {
       await connection.rollback()
       throw error
@@ -54,23 +53,20 @@ export class AuthService {
 
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.role },
-      JWT_SECRET,
-      { expiresIn: JWT_EXPIRES_IN }
+      JWT_SECRET as jwt.Secret,
+      { expiresIn: JWT_EXPIRES_IN as any }
     )
+
+    const userWithProfile = await this.getMe(user.id, user.role)
 
     return {
       token,
-      user: {
-        id: user.id,
-        email: user.email,
-        role: user.role,
-        full_name: user.full_name
-      }
+      user: userWithProfile
     }
   }
 
   async getMe(userId: string, role: string) {
-    const [userRows] = await pool.query('SELECT id, email, role, full_name, phone, avatar_url FROM users WHERE id = ?', [userId])
+    const [userRows] = await pool.query('SELECT id, email, role, full_name, phone, avatar_url, created_at FROM users WHERE id = ?', [userId])
     const user = (userRows as any[])[0]
 
     if (!user) throw new Error('USER_NOT_FOUND')
@@ -119,9 +115,10 @@ export class AuthService {
           await pool.query(`UPDATE employer_profiles SET ${updates.join(', ')} WHERE user_id = ?`, values)
         }
       } else if (role === 'student') {
-        const { university, skills } = profileData
+        const { student_id, university, skills } = profileData
         const updates: string[] = []
         const values: any[] = []
+        if (student_id) { updates.push('student_id = ?'); values.push(student_id) }
         if (university) { updates.push('university = ?'); values.push(university) }
         if (skills) { updates.push('skills = ?'); values.push(JSON.stringify(skills)) }
         

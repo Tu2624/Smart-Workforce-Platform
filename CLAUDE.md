@@ -8,7 +8,28 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Current Status
 
-The `backend/` and `frontend/` directories do not yet exist — the project is in the **documentation/planning phase**. All specs are in `docs/`; implementation has not started. When scaffolding begins, follow `docs/02-project-init.md` for migration order (FK dependencies matter).
+**Phase 3 complete. Phase 4 next.**
+
+**Implemented:**
+- All 12 DB migrations written and ready (`npm run migrate`)
+- Backend modules: `auth`, `employers`, `jobs`, `shifts` — all wired in `app.ts`
+- Auth endpoints: `POST /api/auth/register|login`, `GET /api/auth/me`, `PUT /api/auth/me`, `PUT /api/auth/change-password`
+- Employer endpoints: `POST /api/employers/employees` (create student account, returns temp password)
+- Job endpoints: full CRUD + `PATCH /api/jobs/:id/status` — employer-scoped, students see only `active`
+- Shift endpoints: full CRUD — students see only `open` shifts from `active` jobs
+- All three middleware files: `auth.middleware.ts` (JWT verify), `role.middleware.ts` (roleGuard), `validate.middleware.ts` (Zod)
+- Frontend: `DashboardLayout`, role-based routing, auth pages, employer pages (jobs + shifts CRUD), student browse page, admin stub
+- Docker Compose (MySQL 8 + backend + frontend), health check at `GET /api/health`
+
+**Not yet started (Phase 4+):**
+- Shift registration (`POST /api/shifts/:id/register`, `DELETE`, approve/reject)
+- Attendance check-in/checkout
+- Auto-scheduler (Monday cron)
+- Payroll engine and reputation system
+- Admin user management and stats
+- Notification module
+- Socket hooks in frontend
+- Seed data
 
 ## Commands
 
@@ -56,6 +77,12 @@ docker-compose up -d   # starts mysql + backend (auto-migrates) + frontend
 
 ### Backend (`backend/src/`)
 
+**Entry point** `src/app.ts` — wires Express, Socket.io, routers, error handler, and starts background cron jobs. Currently registered routers:
+- `/api/auth` → `authRouter`
+- `/api/employers` → `employersRouter`
+- `/api/jobs` → `jobsRouter`
+- `/api/shifts` → `shiftsRouter`
+
 **Module structure** — each feature is a self-contained folder under `modules/`:
 ```
 modules/<name>/
@@ -65,35 +92,58 @@ modules/<name>/
   <name>.schema.ts      # Zod validation schemas
 ```
 
-Modules: `auth`, `job`, `shift`, `attendance`, `payroll`, `notification`, `report`, `admin`
-
-**Entry point** `src/app.ts` — wires Express, Socket.io, all routers, error handler, and starts background cron jobs.
+Planned but not yet implemented: `attendance`, `payroll`, `notification`, `report`, `admin`
 
 **Auth flow** — JWT-based. `authMiddleware` verifies Bearer token and attaches `req.user: { id, email, role }`. `roleGuard(...roles)` restricts routes by role. Both are applied per-router, not globally.
 
 **Database** — raw `mysql2` (no ORM). `src/config/database.ts` exports a pool via `mysql2/promise`. Services use `const [rows] = await pool.query(...)` — result is a tuple, not `{rows}`. Schema is managed via `db-migrate` files in `migrations/`.
 
+**Role-based data filtering in services** — services check `req.user.role` to return different data sets: employers see only their own records; students see only active/public records. This filtering happens in the service layer, not via separate endpoints.
+
+**Status workflows:**
+- Jobs: `active | paused | closed` — use `PATCH /api/jobs/:id/status` to transition. Can't delete a job that has non-cancelled shifts.
+- Shifts: `open | full | ongoing | completed | cancelled` — only `open` shifts can be edited. Deleting a shift cancels all `pending`/`approved` registrations in a transaction.
+
+**Serialization gotcha** — `required_skills` is stored as a JSON string in the DB and parsed to an array on retrieval. `hourly_rate` is stored as DECIMAL and parsed to float.
+
 **Realtime** — Socket.io initialized in `src/config/socket.ts`. Use `notifyUser(userId, event, data)` or `notifyShiftRoom(shiftId, event, data)` from any service. Clients join personal rooms (`user_<id>`) and shift rooms (`shift_<id>`).
 
-**Background jobs** (`src/jobs/`):
+**Background jobs** (`src/jobs/` — not yet created):
 - `autoAssignShift.ts` — cron `0 0 * * 1` (Monday 00:00); auto-assign pending registrations
 - `autoCalcPayroll.ts` — triggered real-time after checkout; fallback cron `0 0 * * *`
 - `sendReminders.ts` — cron `*/30 * * * *`; integrates `autoDetectAbsent` and `lowRegistrationAlert`
 
-**Utilities** (`src/utils/`):
+**Utilities** (`src/utils/` — not yet created):
 - `conflictCheck.ts` — shift overlap detection
 - `payrollCalc.ts` — wage calculation logic
 - `reputationCalc.ts` — student reputation scoring
 
 ### Frontend (`frontend/src/`)
 
+**Layout** — `components/layout/DashboardLayout.tsx` provides a sticky navbar with role-based nav links and logout. All user-facing text is in **Vietnamese**.
+
+**Current route map** (React Router v6, all protected via `ProtectedRoute` + `RoleRoute`):
+```
+/login, /register          → public
+/student                   → StudentDashboard (student only)
+/student/shifts            → BrowseShiftsPage (student only)
+/employer                  → EmployerDashboard (employer only)
+/employer/jobs             → JobsPage (employer only)
+/employer/jobs/:id         → JobDetailPage (creates/lists shifts for a job)
+/employer/shifts           → AllShiftsPage (employer only)
+/employer/shifts/:id       → ShiftDetailPage (employer only)
+/admin                     → AdminDashboard stub (admin only)
+/unauthorized              → access denied page
+/                          → redirects to /login
+```
+
 **State** — Zustand stores in `store/`. `authStore.ts` uses `persist` middleware (localStorage key `auth-store`). JWT token is also stored directly in `localStorage` under key `token`.
 
-**API layer** — `api/client.ts` is an axios instance that auto-attaches `Authorization: Bearer <token>` and redirects to `/login` on 401. Individual resource modules (`api/jobs.ts`, `api/shifts.ts`, etc.) import this client.
+**API layer** — `api/client.ts` is an axios instance that auto-attaches `Authorization: Bearer <token>` and redirects to `/login` on 401. Resource modules: `api/jobs.ts`, `api/shifts.ts` (import this client).
 
-**Routing** — React Router v6, pages split by role under `pages/admin/`, `pages/employer/`, `pages/student/`, `pages/auth/`.
+**Sockets** — `hooks/useSocket.ts` and `hooks/useNotificationSocket.ts` (not yet used by pages — Phase 4+).
 
-**Sockets** — `hooks/useSocket.ts` and `hooks/useNotificationSocket.ts` wrap socket.io-client. Components use these hooks to subscribe to real-time events.
+**Animations** — Framer Motion is used extensively throughout all pages. Follow existing animation patterns when adding new pages.
 
 **Env vars** — `VITE_API_URL` (default `/api`) and `VITE_SOCKET_URL` configure the backend connection.
 
@@ -195,10 +245,10 @@ Three shortcut commands for working correctly. Type directly in the Claude Code 
 Reads `docs/system-overview.md`, consults the Feature Impact Matrix, and generates a concrete 6-step checklist for that feature. Required step before writing code.
 
 ```
-/feature auth and account registration
-/feature shift management (shift CRUD)
+/feature shift registration (Phase 4)
 /feature check-in check-out with late detection
 /feature automatic payroll calculation
+/feature admin user management
 ```
 
 ### `/check`
@@ -206,15 +256,8 @@ Reads `docs/system-overview.md`, consults the Feature Impact Matrix, and generat
 
 Verifies that the 4 cross-layer contracts (DB↔API, API↔Frontend, Socket↔Hook, Rule↔Test) are not broken. Reports ✅ / ⚠️ / ❌ for each contract.
 
-```
-/check
-/check after adding a new enum value for shift status
-```
-
 ### `/contracts <topic>`
 **When to use**: When touching the 4 most sensitive areas — auth/JWT, enum values, Socket.io events, business rule constants.
-
-Loads cross-layer awareness and lists exactly what to check before making changes.
 
 ```
 /contracts JWT token and role guard

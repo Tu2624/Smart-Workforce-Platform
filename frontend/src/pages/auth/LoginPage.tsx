@@ -88,7 +88,7 @@ const LoginPage = () => {
                   <input type="checkbox" className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
                   <span className="font-medium hover:text-slate-900 transition-colors">Ghi nhớ đăng nhập</span>
                 </label>
-                <Link to="/forgot-password" className="font-bold text-indigo-600 hover:text-indigo-500">Quên mật khẩu?</Link>
+                <span className="font-bold text-slate-400 cursor-not-allowed select-none">Quên mật khẩu?</span>
               </motion.div>
 
               <motion.div variants={itemVariants} className="pt-2">

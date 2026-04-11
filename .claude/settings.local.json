@@ -5,7 +5,14 @@
       "Bash(for f:*)",
       "Bash(do echo:*)",
       "Read(//c/Users/ADMIN/Documents/BTL-ThucTap/**)",
-      "Bash(done)"
+      "Bash(done)",
+      "Bash(find C:\\\\Users\\\\ADMIN\\\\Documents\\\\BTL-ThucTap\\\\backend\\\\src:*)",
+      "Bash(grep -E \"\\\\.md$|docs\")",
+      "Bash(docker-compose up:*)",
+      "Bash(docker exec sw_backend:*)",
+      "Bash(curl:*)",
+      "Bash(docker-compose restart:*)",
+      "Bash(xargs grep:*)"
     ]
   }
 }

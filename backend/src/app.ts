@@ -4,6 +4,10 @@ import helmet from 'helmet'
 import morgan from 'morgan'
 
 import { authRouter } from './modules/auth/auth.router'
+import { employersRouter } from './modules/employers/employers.router'
+import { jobsRouter } from './modules/jobs/jobs.router'
+import { shiftsRouter } from './modules/shifts/shifts.router'
+import { adminRouter } from './modules/admin/admin.router'
 
 const app = express()
 
@@ -25,6 +29,10 @@ app.get('/api/health', (req, res) => {
 
 // Routes
 app.use('/api/auth', authRouter)
+app.use('/api/employers', employersRouter)
+app.use('/api/jobs', jobsRouter)
+app.use('/api/shifts', shiftsRouter)
+app.use('/api/admin', adminRouter)
 
 // Error handling middleware
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

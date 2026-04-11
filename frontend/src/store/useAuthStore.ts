@@ -7,6 +7,9 @@ interface User {
   email: string
   role: 'student' | 'employer' | 'admin'
   full_name: string
+  phone?: string
+  avatar_url?: string
+  profile?: any // More specific types can be added later as needed
 }
 
 interface AuthState {

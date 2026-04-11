@@ -11,7 +11,7 @@ router.post('/login', validate(loginSchema), authController.login)
 
 // Protected routes
 router.get('/me', authMiddleware, authController.getMe)
-router.put('/profile', authMiddleware, validate(updateProfileSchema), authController.updateProfile)
+router.put('/me', authMiddleware, validate(updateProfileSchema), authController.updateProfile)
 router.put('/change-password', authMiddleware, validate(changePasswordSchema), authController.changePassword)
 
 export { router as authRouter }

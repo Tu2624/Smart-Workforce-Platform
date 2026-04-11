@@ -31,6 +31,12 @@ export const updateProfileSchema = z.object({
     full_name: z.string().optional(),
     phone: z.string().optional(),
     avatar_url: z.string().url().optional(),
+    // Employer fields
+    company_name: z.string().optional(),
+    address: z.string().optional(),
+    description: z.string().optional(),
+    // Student fields
+    student_id: z.string().optional(),
     university: z.string().optional(),
     skills: z.array(z.string()).optional()
   })
