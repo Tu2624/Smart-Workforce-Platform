@@ -7,7 +7,8 @@ import { listUsersSchema } from './admin.schema'
 
 const router = Router()
 
-router.get('/stats', authMiddleware, roleGuard('admin'), adminController.getStats)
-router.get('/users', authMiddleware, roleGuard('admin'), validate(listUsersSchema), adminController.listUsers)
+router.get('/stats',                  authMiddleware, roleGuard('admin'), adminController.getStats)
+router.get('/users',                  authMiddleware, roleGuard('admin'), validate(listUsersSchema), adminController.listUsers)
+router.patch('/users/:id/toggle-status', authMiddleware, roleGuard('admin'), adminController.toggleUserStatus)
 
 export { router as adminRouter }

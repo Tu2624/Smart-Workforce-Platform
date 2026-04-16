@@ -47,6 +47,14 @@ export class AdminService {
       }
     }
   }
+
+  async toggleUserStatus(userId: string) {
+    const [rows] = await pool.query('SELECT id, is_active FROM users WHERE id = ?', [userId])
+    const user = (rows as any[])[0]
+    if (!user) throw new Error('USER_NOT_FOUND')
+    await pool.query('UPDATE users SET is_active = ? WHERE id = ?', [!user.is_active, userId])
+    return { is_active: !user.is_active }
+  }
 }
 
 export const adminService = new AdminService()

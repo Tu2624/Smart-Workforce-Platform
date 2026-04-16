@@ -51,6 +51,25 @@ export class EmployersService {
     }
   }
 
+  async listEmployees(employerId: string) {
+    const [rows] = await pool.query(
+      `SELECT u.id, u.email, u.full_name, u.phone, u.created_at,
+              sp.student_id, sp.university, sp.reputation_score, sp.skills
+       FROM users u
+       JOIN student_profiles sp ON sp.user_id = u.id
+       WHERE sp.employer_id = ? AND u.is_active = true
+       ORDER BY u.created_at DESC`,
+      [employerId]
+    )
+    return {
+      employees: (rows as any[]).map(e => ({
+        ...e,
+        skills: typeof e.skills === 'string' ? JSON.parse(e.skills) : (e.skills ?? []),
+        reputation_score: e.reputation_score != null ? parseFloat(e.reputation_score) : 100,
+      }))
+    }
+  }
+
   async getStats(employerId: string) {
     const [empRows] = await pool.query('SELECT COUNT(*) as count FROM student_profiles WHERE employer_id = ?', [employerId])
     const employeeCount = (empRows as any[])[0].count

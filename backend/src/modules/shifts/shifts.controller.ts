@@ -57,6 +57,34 @@ export class ShiftsController {
     }
   }
 
+  async listRegistrations(req: AuthRequest, res: Response) {
+    try {
+      const result = await shiftsService.listRegistrations(req.params.id, req.user!.id)
+      res.status(200).json(result)
+    } catch (err: any) {
+      if (err.message === 'SHIFT_NOT_FOUND') return res.status(404).json({ error: 'SHIFT_NOT_FOUND', message: 'Shift not found' })
+      if (err.message === 'FORBIDDEN') return res.status(403).json({ error: 'FORBIDDEN', message: 'You do not own this shift' })
+      res.status(500).json({ error: 'INTERNAL_SERVER_ERROR', message: err.message })
+    }
+  }
+
+  async reviewRegistration(req: AuthRequest, res: Response) {
+    try {
+      const result = await shiftsService.reviewRegistration(req.params.id, req.params.reg_id, req.user!.id, req.body.status)
+      res.status(200).json(result)
+    } catch (err: any) {
+      const map: Record<string, [number, string]> = {
+        SHIFT_NOT_FOUND:       [404, 'Shift not found'],
+        FORBIDDEN:             [403, 'You do not own this shift'],
+        REGISTRATION_NOT_FOUND:[404, 'Registration not found'],
+        ALREADY_REVIEWED:      [409, 'Registration already reviewed'],
+        SHIFT_FULL:            [409, 'Shift is already full'],
+      }
+      const [status, message] = map[err.message] ?? [500, err.message]
+      res.status(status).json({ error: err.message, message })
+    }
+  }
+
   async myStats(req: AuthRequest, res: Response) {
     try {
       const result = await shiftsService.getStudentDashboardStats(req.user!.id)

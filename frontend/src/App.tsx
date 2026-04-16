@@ -14,6 +14,13 @@ import BrowseShiftsPage from './pages/student/BrowseShiftsPage'
 import ProfilePage from './pages/student/ProfilePage'
 import AdminUsersPage from './pages/admin/AdminUsersPage'
 import AdminJobsPage from './pages/admin/AdminJobsPage'
+import StudentAttendance from './pages/student/StudentAttendance'
+import StudentPayroll from './pages/student/StudentPayroll'
+import StudentPayrollDetail from './pages/student/PayrollDetailPage'
+import AttendanceOverview from './pages/employer/AttendanceOverview'
+import PayrollList from './pages/employer/PayrollList'
+import EmployerPayrollDetail from './pages/employer/PayrollDetailPage'
+import NotificationPage from './pages/shared/NotificationPage'
 
 const Unauthorized = () => <div className="p-8 text-red-500"><h1>Unauthorized Access</h1></div>
 
@@ -26,28 +33,36 @@ const router = createBrowserRouter([
       {
         element: <RoleRoute allowedRoles={['student']} />,
         children: [
-          { path: '/student', element: <StudentDashboard /> },
-          { path: '/student/shifts', element: <BrowseShiftsPage /> },
-          { path: '/student/profile', element: <ProfilePage /> },
+          { path: '/student',               element: <StudentDashboard /> },
+          { path: '/student/shifts',        element: <BrowseShiftsPage /> },
+          { path: '/student/profile',       element: <ProfilePage /> },
+          { path: '/student/attendance',    element: <StudentAttendance /> },
+          { path: '/student/payroll',       element: <StudentPayroll /> },
+          { path: '/student/payroll/:id',   element: <StudentPayrollDetail /> },
+          { path: '/student/notifications', element: <NotificationPage /> },
         ],
       },
       {
         element: <RoleRoute allowedRoles={['employer']} />,
         children: [
-          { path: '/employer', element: <EmployerDashboard /> },
-          { path: '/employer/jobs', element: <JobsPage /> },
-          { path: '/employer/jobs/:id', element: <JobDetailPage /> },
-          { path: '/employer/shifts', element: <AllShiftsPage /> },
-          { path: '/employer/shifts/:id', element: <ShiftDetailPage /> },
-          { path: '/employer/profile', element: <ProfilePage /> },
+          { path: '/employer',                  element: <EmployerDashboard /> },
+          { path: '/employer/jobs',             element: <JobsPage /> },
+          { path: '/employer/jobs/:id',         element: <JobDetailPage /> },
+          { path: '/employer/shifts',           element: <AllShiftsPage /> },
+          { path: '/employer/shifts/:id',       element: <ShiftDetailPage /> },
+          { path: '/employer/profile',          element: <ProfilePage /> },
+          { path: '/employer/attendance',       element: <AttendanceOverview /> },
+          { path: '/employer/payroll',          element: <PayrollList /> },
+          { path: '/employer/payroll/:id',      element: <EmployerPayrollDetail /> },
+          { path: '/employer/notifications',    element: <NotificationPage /> },
         ],
       },
       {
         element: <RoleRoute allowedRoles={['admin']} />,
         children: [
-          { path: '/admin', element: <AdminDashboard /> },
+          { path: '/admin',       element: <AdminDashboard /> },
           { path: '/admin/users', element: <AdminUsersPage /> },
-          { path: '/admin/jobs', element: <AdminJobsPage /> },
+          { path: '/admin/jobs',  element: <AdminJobsPage /> },
         ],
       },
     ],

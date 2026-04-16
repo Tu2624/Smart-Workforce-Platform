@@ -29,3 +29,9 @@ export const registerShift = (id: string) =>
 
 export const cancelRegistration = (id: string) =>
   apiClient.delete(`/shifts/${id}/register`).then(r => r.data)
+
+export const getShiftRegistrations = (shiftId: string) =>
+  apiClient.get(`/shifts/${shiftId}/registrations`).then(r => r.data)
+
+export const reviewRegistration = (shiftId: string, regId: string, status: 'approved' | 'rejected') =>
+  apiClient.patch(`/shifts/${shiftId}/registrations/${regId}`, { status }).then(r => r.data)

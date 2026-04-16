@@ -8,28 +8,26 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Current Status
 
-**Phase 3 complete. Phase 4 next.**
+**Phase 4 complete.**
 
 **Implemented:**
 - All 12 DB migrations written and ready (`npm run migrate`)
-- Backend modules: `auth`, `employers`, `jobs`, `shifts` — all wired in `app.ts`
-- Auth endpoints: `POST /api/auth/register|login`, `GET /api/auth/me`, `PUT /api/auth/me`, `PUT /api/auth/change-password`
-- Employer endpoints: `POST /api/employers/employees` (create student account, returns temp password)
-- Job endpoints: full CRUD + `PATCH /api/jobs/:id/status` — employer-scoped, students see only `active`
-- Shift endpoints: full CRUD — students see only `open` shifts from `active` jobs
-- All three middleware files: `auth.middleware.ts` (JWT verify), `role.middleware.ts` (roleGuard), `validate.middleware.ts` (Zod)
-- Frontend: `DashboardLayout`, role-based routing, auth pages, employer pages (jobs + shifts CRUD), student browse + profile pages, admin dashboard + users + jobs pages (read-only views)
-- Docker Compose (MySQL 8 + backend + frontend), health check at `GET /api/health`
+- Backend modules: `auth`, `employers`, `jobs`, `shifts`, `attendance`, `payroll`, `notification`, `admin`
+- Shift registration: `POST/DELETE /api/shifts/:id/register` + `GET /api/shifts/:id/registrations` + `PATCH /api/shifts/:id/registrations/:reg_id` (approve/reject)
+- Attendance: `POST /api/attendance/checkin|checkout`, `GET /api/attendance`, `GET /api/attendance/shift/:id`, `PATCH /api/attendance/:id/force-complete`
+- Payroll: `GET /api/payroll` (student), `GET /api/payroll/employer`, `GET /api/payroll/:id`, `PATCH /api/payroll/:id/confirm|paid`
+- Notifications: `GET /api/notifications`, `PATCH /api/notifications/:id/read`, `PATCH /api/notifications/read-all`
+- Admin: `GET /api/admin/stats|users`, `PATCH /api/admin/users/:id/toggle-status`
+- Background jobs: `weeklyScheduler.ts` (Mon 00:00 — auto-assign pending registrations), `autoDetectAbsent.ts` (every 30 min)
+- Utilities: `reputationCalc.ts`, `payrollCalc.ts`, `notificationHelper.ts`
+- Socket.io: `src/config/socket.ts` — `notifyUser()`, `notifyShiftRoom()`
+- Frontend: all Phase 4 pages + NotificationBell in DashboardLayout + `useNotificationSocket`
 
-**Not yet started (Phase 4+):**
-- Shift registration (`POST /api/shifts/:id/register`, `DELETE`, approve/reject)
-- Attendance check-in/checkout
-- Auto-scheduler (Monday cron)
-- Payroll engine and reputation system
-- Admin user management and stats (module stub exists — routes wired, logic not implemented)
-- Notification module
-- Socket hooks in frontend
-- Seed data
+**Not yet started:**
+- Seed data (`npm run seed` schema exists, data not populated)
+- Ratings system (DB migration exists, no endpoints)
+- Admin create employer endpoint
+- Payroll export (PDF/Excel)
 
 ## Commands
 
@@ -78,11 +76,15 @@ docker-compose up -d   # starts mysql + backend (auto-migrates) + frontend
 
 ### Backend (`backend/src/`)
 
-**Entry point** `src/app.ts` — wires Express, Socket.io, routers, error handler, and starts background cron jobs. Currently registered routers:
+**Entry point** `src/app.ts` — wires Express, Socket.io, routers, error handler, and starts background cron jobs. Registered routers:
 - `/api/auth` → `authRouter`
 - `/api/employers` → `employersRouter`
 - `/api/jobs` → `jobsRouter`
 - `/api/shifts` → `shiftsRouter`
+- `/api/admin` → `adminRouter`
+- `/api/attendance` → `attendanceRouter`
+- `/api/payroll` → `payrollRouter`
+- `/api/notifications` → `notificationRouter`
 
 **Module structure** — each feature is a self-contained folder under `modules/`:
 ```
@@ -93,9 +95,7 @@ modules/<name>/
   <name>.schema.ts      # Zod validation schemas
 ```
 
-Stub exists (wired, logic empty): `admin` — `src/modules/admin/` has all 4 files and is registered in `app.ts`; frontend has `AdminDashboard`, `AdminJobsPage` (calls `GET /api/jobs` directly, read-only), `AdminUsersPage` pages — all 3 routes active.
-
-Planned but not yet created: `attendance`, `payroll`, `notification`, `report`
+All modules are fully implemented: `auth`, `employers`, `jobs`, `shifts`, `attendance`, `payroll`, `notification`, `admin`.
 
 **Auth flow** — JWT-based. `authMiddleware` verifies Bearer token and attaches `req.user: { id, email, role }`. `roleGuard(...roles)` restricts routes by role. Both are applied per-router, not globally.
 
@@ -133,12 +133,20 @@ Planned but not yet created: `attendance`, `payroll`, `notification`, `report`
 /student                   → StudentDashboard (student only)
 /student/shifts            → BrowseShiftsPage (student only)
 /student/profile           → ProfilePage (student only)
+/student/attendance        → StudentAttendance — check-in/out + history (student only)
+/student/payroll           → StudentPayroll — payroll list (student only)
+/student/payroll/:id       → StudentPayrollDetail (student only)
+/student/notifications     → NotificationPage (student only)
 /employer                  → EmployerDashboard (employer only)
 /employer/jobs             → JobsPage (employer only)
 /employer/jobs/:id         → JobDetailPage (creates/lists shifts for a job)
 /employer/shifts           → AllShiftsPage (employer only)
-/employer/shifts/:id       → ShiftDetailPage (employer only)
+/employer/shifts/:id       → ShiftDetailPage — registrations + attendance (employer only)
 /employer/profile          → ProfilePage (employer only)
+/employer/attendance       → AttendanceOverview — per-shift attendance + force-checkout (employer only)
+/employer/payroll          → PayrollList (employer only)
+/employer/payroll/:id      → EmployerPayrollDetail (employer only)
+/employer/notifications    → NotificationPage (employer only)
 /admin                     → AdminDashboard (admin only)
 /admin/users               → AdminUsersPage (admin only)
 /admin/jobs                → AdminJobsPage — read-only list of all jobs (admin only)

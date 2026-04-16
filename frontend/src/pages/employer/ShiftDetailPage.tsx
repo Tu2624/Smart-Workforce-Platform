@@ -5,8 +5,8 @@ import DashboardLayout from '../../components/layout/DashboardLayout'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import { containerVariants, itemVariants } from '../../utils/animations'
-import { getShift, updateShift, deleteShift } from '../../api/shifts'
-import { Shift } from '../../types'
+import { getShift, updateShift, deleteShift, getShiftRegistrations, reviewRegistration } from '../../api/shifts'
+import { getShiftAttendance } from '../../api/attendance'
 
 const STATUS_STYLES: Record<string, string> = {
   open: 'bg-emerald-100 text-emerald-700', full: 'bg-red-100 text-red-600',
@@ -15,6 +15,21 @@ const STATUS_STYLES: Record<string, string> = {
 const STATUS_LABELS: Record<string, string> = {
   open: 'Mở', full: 'Đầy', ongoing: 'Đang diễn ra', completed: 'Hoàn thành', cancelled: 'Đã huỷ',
 }
+const REG_STYLES: Record<string, string> = {
+  pending: 'bg-amber-100 text-amber-700', approved: 'bg-emerald-100 text-emerald-700',
+  rejected: 'bg-red-100 text-red-600', cancelled: 'bg-slate-100 text-slate-400',
+}
+const REG_LABELS: Record<string, string> = {
+  pending: 'Chờ duyệt', approved: 'Đã duyệt', rejected: 'Từ chối', cancelled: 'Đã huỷ',
+}
+const ATTEND_STYLES: Record<string, string> = {
+  on_time: 'text-emerald-600', late: 'text-amber-600', absent: 'text-red-500',
+  incomplete: 'text-slate-400', pending: 'text-slate-400',
+}
+const ATTEND_LABELS: Record<string, string> = {
+  on_time: 'Đúng giờ', late: 'Trễ', absent: 'Vắng', incomplete: 'Chưa checkout', pending: 'Chưa điểm danh',
+}
+
 const formatDateTime = (dt: string) => new Date(dt).toLocaleString('vi-VN', { dateStyle: 'medium', timeStyle: 'short' })
 const toDatetimeLocal = (dt: string) => new Date(dt).toISOString().slice(0, 16)
 
@@ -29,7 +44,13 @@ const ShiftDetailPage: React.FC = () => {
   const [editError, setEditError] = useState('')
   const [cancelConfirm, setCancelConfirm] = useState(false)
   const [cancelLoading, setCancelLoading] = useState(false)
-  const [cancelled, setCancelled] = useState(false)
+
+  const [registrations, setRegistrations] = useState<any[]>([])
+  const [regLoading, setRegLoading] = useState(false)
+  const [reviewingId, setReviewingId] = useState<string | null>(null)
+
+  const [attendance, setAttendance] = useState<any[]>([])
+  const [attendLoading, setAttendLoading] = useState(false)
 
   const fetchShift = async () => {
     if (!id) return
@@ -44,12 +65,32 @@ const ShiftDetailPage: React.FC = () => {
         max_workers: data.shift.max_workers.toString(),
         auto_assign: data.shift.auto_assign,
       })
-    } finally {
-      setLoading(false)
-    }
+    } finally { setLoading(false) }
   }
 
-  useEffect(() => { fetchShift() }, [id])
+  const fetchRegistrations = async () => {
+    if (!id) return
+    setRegLoading(true)
+    try {
+      const data = await getShiftRegistrations(id)
+      setRegistrations(data.registrations)
+    } catch {} finally { setRegLoading(false) }
+  }
+
+  const fetchAttendance = async () => {
+    if (!id) return
+    setAttendLoading(true)
+    try {
+      const data = await getShiftAttendance(id)
+      setAttendance(data.attendance)
+    } catch {} finally { setAttendLoading(false) }
+  }
+
+  useEffect(() => {
+    fetchShift()
+    fetchRegistrations()
+    fetchAttendance()
+  }, [id])
 
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -66,21 +107,23 @@ const ShiftDetailPage: React.FC = () => {
       fetchShift()
     } catch (err: any) {
       setEditError(err.response?.data?.message || 'Cập nhật thất bại.')
-    } finally {
-      setEditLoading(false)
-    }
+    } finally { setEditLoading(false) }
   }
 
   const handleCancel = async () => {
     setCancelLoading(true)
+    try { await deleteShift(id!); fetchShift() }
+    finally { setCancelLoading(false); setCancelConfirm(false) }
+  }
+
+  const handleReview = async (regId: string, status: 'approved' | 'rejected') => {
+    setReviewingId(regId)
     try {
-      await deleteShift(id!)
-      setCancelled(true)
-      fetchShift()
-    } finally {
-      setCancelLoading(false)
-      setCancelConfirm(false)
-    }
+      await reviewRegistration(id!, regId, status)
+      await Promise.all([fetchRegistrations(), fetchShift()])
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Thao tác thất bại.')
+    } finally { setReviewingId(null) }
   }
 
   if (loading) return <DashboardLayout><p className="text-slate-400 text-center py-20">Đang tải...</p></DashboardLayout>
@@ -98,6 +141,7 @@ const ShiftDetailPage: React.FC = () => {
           </Link>
         </motion.div>
 
+        {/* Shift info */}
         <motion.div variants={itemVariants}>
           <Card glass>
             {!editing ? (
@@ -183,11 +227,87 @@ const ShiftDetailPage: React.FC = () => {
           </Card>
         </motion.div>
 
-        {/* Registrations placeholder */}
+        {/* Registrations */}
         <motion.div variants={itemVariants}>
           <Card glass>
-            <h2 className="text-lg font-black text-slate-900 mb-2">Danh sách đăng ký</h2>
-            <p className="text-slate-400 text-sm">Tính năng xem và duyệt đăng ký sẽ có ở Phase 4.</p>
+            <h2 className="text-lg font-black text-slate-900 mb-4">
+              Danh sách đăng ký ({registrations.length})
+            </h2>
+            {regLoading ? (
+              <p className="text-slate-400 text-sm text-center py-6">Đang tải...</p>
+            ) : registrations.length === 0 ? (
+              <p className="text-slate-400 text-sm text-center py-6">Chưa có ai đăng ký ca này.</p>
+            ) : (
+              <div className="space-y-3">
+                {registrations.map(reg => (
+                  <div key={reg.id} className="flex items-center justify-between gap-4 py-3 border-b border-slate-100 last:border-0">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-slate-900 text-sm truncate">{reg.full_name}</p>
+                      <p className="text-xs text-slate-500">{reg.email} · ĐUY: {Number(reg.reputation_score).toFixed(1)}</p>
+                      {reg.university && <p className="text-xs text-slate-400">{reg.university}</p>}
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-black ${REG_STYLES[reg.status]}`}>
+                        {REG_LABELS[reg.status]}
+                      </span>
+                      {reg.status === 'pending' && (
+                        <>
+                          <Button variant="primary" size="sm"
+                            isLoading={reviewingId === reg.id}
+                            onClick={() => handleReview(reg.id, 'approved')}>
+                            Duyệt
+                          </Button>
+                          <Button variant="danger" size="sm"
+                            isLoading={reviewingId === reg.id}
+                            onClick={() => handleReview(reg.id, 'rejected')}>
+                            Từ chối
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+        </motion.div>
+
+        {/* Attendance */}
+        <motion.div variants={itemVariants}>
+          <Card glass>
+            <h2 className="text-lg font-black text-slate-900 mb-4">
+              Điểm danh ({attendance.length})
+            </h2>
+            {attendLoading ? (
+              <p className="text-slate-400 text-sm text-center py-6">Đang tải...</p>
+            ) : attendance.length === 0 ? (
+              <p className="text-slate-400 text-sm text-center py-6">Chưa có dữ liệu điểm danh.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-slate-500 text-xs font-bold uppercase tracking-wider border-b border-slate-100">
+                      <th className="pb-2 pr-4">Nhân viên</th>
+                      <th className="pb-2 pr-4">Check-in</th>
+                      <th className="pb-2 pr-4">Check-out</th>
+                      <th className="pb-2 pr-4">Giờ làm</th>
+                      <th className="pb-2">Trạng thái</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {attendance.map(a => (
+                      <tr key={a.id} className="border-b border-slate-50 last:border-0">
+                        <td className="py-2 pr-4 font-semibold text-slate-900">{a.full_name}</td>
+                        <td className="py-2 pr-4 text-slate-600">{a.check_in_time ? new Date(a.check_in_time).toLocaleTimeString('vi-VN', { timeStyle: 'short' }) : '—'}</td>
+                        <td className="py-2 pr-4 text-slate-600">{a.check_out_time ? new Date(a.check_out_time).toLocaleTimeString('vi-VN', { timeStyle: 'short' }) : '—'}</td>
+                        <td className="py-2 pr-4 text-slate-600">{a.hours_worked != null ? `${Number(a.hours_worked).toFixed(1)}h` : '—'}</td>
+                        <td className={`py-2 font-bold text-xs ${ATTEND_STYLES[a.status]}`}>{ATTEND_LABELS[a.status]}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </Card>
         </motion.div>
       </motion.div>

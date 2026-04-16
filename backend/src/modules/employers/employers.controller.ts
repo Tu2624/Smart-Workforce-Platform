@@ -18,6 +18,15 @@ export class EmployersController {
     }
   }
 
+  async listEmployees(req: AuthRequest, res: Response) {
+    try {
+      const result = await employersService.listEmployees(req.user!.id)
+      res.status(200).json(result)
+    } catch (error: any) {
+      res.status(500).json({ error: 'INTERNAL_SERVER_ERROR', message: error.message })
+    }
+  }
+
   async getStats(req: AuthRequest, res: Response) {
     try {
       const result = await employersService.getStats(req.user!.id)

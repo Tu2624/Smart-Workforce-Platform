@@ -14,7 +14,10 @@ router.get('/:id', authMiddleware, roleGuard('employer', 'student', 'admin'), sh
 router.put('/:id', authMiddleware, roleGuard('employer'), validate(updateShiftSchema), shiftsController.update)
 router.delete('/:id', authMiddleware, roleGuard('employer'), shiftsController.remove)
 
-router.post('/:id/register', authMiddleware, roleGuard('student'), shiftsController.register)
+router.post('/:id/register',   authMiddleware, roleGuard('student'), shiftsController.register)
 router.delete('/:id/register', authMiddleware, roleGuard('student'), shiftsController.cancelRegistration)
+
+router.get('/:id/registrations',             authMiddleware, roleGuard('employer'), shiftsController.listRegistrations)
+router.patch('/:id/registrations/:reg_id',   authMiddleware, roleGuard('employer'), shiftsController.reviewRegistration)
 
 export { router as shiftsRouter }

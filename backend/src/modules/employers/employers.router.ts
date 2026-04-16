@@ -8,6 +8,7 @@ import { createEmployeeSchema } from './employers.schema'
 const router = Router()
 
 router.get('/stats', authMiddleware, roleGuard('employer'), employersController.getStats)
+router.get('/employees', authMiddleware, roleGuard('employer'), employersController.listEmployees)
 
 router.post(
   '/employees',
