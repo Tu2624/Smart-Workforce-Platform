@@ -1,6 +1,17 @@
 import pool from '../../config/database'
 
 export class AdminService {
+  async getStats() {
+    const [[userRow]] = await pool.query('SELECT COUNT(*) as total FROM users') as any
+    const [[jobRow]] = await pool.query('SELECT COUNT(*) as total FROM jobs') as any
+    const [[shiftRow]] = await pool.query('SELECT COUNT(*) as total FROM shifts') as any
+    return {
+      total_users: Number(userRow.total),
+      total_jobs: Number(jobRow.total),
+      total_shifts: Number(shiftRow.total),
+    }
+  }
+
   async listUsers(query: any) {
     const role = query.role
     const page = parseInt(query.page) || 1

@@ -12,7 +12,10 @@
       "Bash(docker exec sw_backend:*)",
       "Bash(curl:*)",
       "Bash(docker-compose restart:*)",
-      "Bash(xargs grep:*)"
+      "Bash(xargs grep:*)",
+      "Bash(wc:*)",
+      "Bash(grep -n \"^\\\\s*}\\\\s*$\" /c/Users/ADMIN/Documents/BTL-ThucTap/backend/src/modules/*/\\\\*.ts /c/Users/ADMIN/Documents/BTL-ThucTap/backend/src/middlewares/\\\\*.ts /c/Users/ADMIN/Documents/BTL-ThucTap/backend/src/config/\\\\*.ts)",
+      "Bash(awk '{print $9, $5}')"
     ]
   }
 }

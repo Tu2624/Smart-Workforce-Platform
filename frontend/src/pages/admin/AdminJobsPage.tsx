@@ -10,7 +10,7 @@ const AdminJobsPage: React.FC = () => {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    apiClient.get('/api/jobs') // This now works for Admin too
+    apiClient.get('/jobs') // This now works for Admin too
       .then(res => setJobs(res.data.jobs))
       .catch(console.error)
       .finally(() => setLoading(false))

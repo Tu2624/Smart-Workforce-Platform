@@ -18,7 +18,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Job endpoints: full CRUD + `PATCH /api/jobs/:id/status` — employer-scoped, students see only `active`
 - Shift endpoints: full CRUD — students see only `open` shifts from `active` jobs
 - All three middleware files: `auth.middleware.ts` (JWT verify), `role.middleware.ts` (roleGuard), `validate.middleware.ts` (Zod)
-- Frontend: `DashboardLayout`, role-based routing, auth pages, employer pages (jobs + shifts CRUD), student browse page, admin stub
+- Frontend: `DashboardLayout`, role-based routing, auth pages, employer pages (jobs + shifts CRUD), student browse + profile pages, admin dashboard + users + jobs pages (read-only views)
 - Docker Compose (MySQL 8 + backend + frontend), health check at `GET /api/health`
 
 **Not yet started (Phase 4+):**
@@ -26,7 +26,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Attendance check-in/checkout
 - Auto-scheduler (Monday cron)
 - Payroll engine and reputation system
-- Admin user management and stats
+- Admin user management and stats (module stub exists — routes wired, logic not implemented)
 - Notification module
 - Socket hooks in frontend
 - Seed data
@@ -71,6 +71,7 @@ npx vitest run src/components/Badge.test.tsx
 ### Docker (full stack)
 ```bash
 docker-compose up -d   # starts mysql + backend (auto-migrates) + frontend
+# MySQL is exposed on host port 3307 (not 3306) to avoid conflicts with local installs
 ```
 
 ## Architecture
@@ -92,11 +93,15 @@ modules/<name>/
   <name>.schema.ts      # Zod validation schemas
 ```
 
-Planned but not yet implemented: `attendance`, `payroll`, `notification`, `report`, `admin`
+Stub exists (wired, logic empty): `admin` — `src/modules/admin/` has all 4 files and is registered in `app.ts`; frontend has `AdminDashboard`, `AdminJobsPage` (calls `GET /api/jobs` directly, read-only), `AdminUsersPage` pages — all 3 routes active.
+
+Planned but not yet created: `attendance`, `payroll`, `notification`, `report`
 
 **Auth flow** — JWT-based. `authMiddleware` verifies Bearer token and attaches `req.user: { id, email, role }`. `roleGuard(...roles)` restricts routes by role. Both are applied per-router, not globally.
 
-**Database** — raw `mysql2` (no ORM). `src/config/database.ts` exports a pool via `mysql2/promise`. Services use `const [rows] = await pool.query(...)` — result is a tuple, not `{rows}`. Schema is managed via `db-migrate` files in `migrations/`.
+**Database** — raw `mysql2` (no ORM). `src/config/database.ts` exports a pool via `mysql2/promise` with `timezone: '+07:00'`. Services use `const [rows] = await pool.query(...)` — result is a tuple, not `{rows}`. Schema is managed via `db-migrate` files in `migrations/`. The `database.json` at backend root configures db-migrate separately from `.env` — both must match.
+
+**Middleware directory** — use `src/middlewares/` (plural). `src/middleware/` (singular) is an empty deprecated folder; do not add files there.
 
 **Role-based data filtering in services** — services check `req.user.role` to return different data sets: employers see only their own records; students see only active/public records. This filtering happens in the service layer, not via separate endpoints.
 
@@ -127,12 +132,16 @@ Planned but not yet implemented: `attendance`, `payroll`, `notification`, `repor
 /login, /register          → public
 /student                   → StudentDashboard (student only)
 /student/shifts            → BrowseShiftsPage (student only)
+/student/profile           → ProfilePage (student only)
 /employer                  → EmployerDashboard (employer only)
 /employer/jobs             → JobsPage (employer only)
 /employer/jobs/:id         → JobDetailPage (creates/lists shifts for a job)
 /employer/shifts           → AllShiftsPage (employer only)
 /employer/shifts/:id       → ShiftDetailPage (employer only)
-/admin                     → AdminDashboard stub (admin only)
+/employer/profile          → ProfilePage (employer only)
+/admin                     → AdminDashboard (admin only)
+/admin/users               → AdminUsersPage (admin only)
+/admin/jobs                → AdminJobsPage — read-only list of all jobs (admin only)
 /unauthorized              → access denied page
 /                          → redirects to /login
 ```
@@ -143,7 +152,7 @@ Planned but not yet implemented: `attendance`, `payroll`, `notification`, `repor
 
 **Sockets** — `hooks/useSocket.ts` and `hooks/useNotificationSocket.ts` (not yet used by pages — Phase 4+).
 
-**Animations** — Framer Motion is used extensively throughout all pages. Follow existing animation patterns when adding new pages.
+**Animations** — Framer Motion is used extensively throughout all pages. Follow existing animation patterns when adding new pages. `react-big-calendar` is installed and available for scheduling/calendar views (Phase 4+).
 
 **Env vars** — `VITE_API_URL` (default `/api`) and `VITE_SOCKET_URL` configure the backend connection.
 
@@ -213,7 +222,7 @@ See `docs/system-overview.md §9` for the full decisions log (22 confirmed archi
 - **No ORM**: all SQL is written manually in service files. Use `?` placeholders (mysql2 syntax) — never string interpolation.
 - **UUID before INSERT**: generate UUID with `uuid` package in TypeScript before INSERT; MySQL has no `RETURNING`. `const id = uuidv4()` → pass to INSERT.
 - **Validation at router level**: Zod schemas in `*.schema.ts` are applied as middleware before controllers.
-- **Tests live in `backend/tests/`** (not co-located with source). Jest runs with `--runInBand` to avoid DB connection race conditions.
+- **Tests live in `backend/tests/`** (not co-located with source). Jest runs with `--runInBand` to avoid DB connection race conditions. Scratch/ad-hoc scripts (`test_db.js`, `test_create_shift.js`, etc.) exist in the `backend/` root — these are not part of the test suite.
 - **Migrations are append-only**: never edit existing migration files; always add a new one.
 - **Student creation**: employers create students via `POST /api/employers/employees`; students do NOT self-register. Temp password is returned only in the API response (no email service).
 - **Student belongs to one employer**: `student_profiles.employer_id` is a hard binding — no marketplace/multi-employer model.

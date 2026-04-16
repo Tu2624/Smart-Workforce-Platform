@@ -8,6 +8,7 @@ import { createShiftSchema, updateShiftSchema } from './shifts.schema'
 const router = Router()
 
 router.post('/', authMiddleware, roleGuard('employer'), validate(createShiftSchema), shiftsController.create)
+router.get('/my-stats', authMiddleware, roleGuard('student'), shiftsController.myStats)
 router.get('/', authMiddleware, roleGuard('employer', 'student', 'admin'), shiftsController.list)
 router.get('/:id', authMiddleware, roleGuard('employer', 'student', 'admin'), shiftsController.getOne)
 router.put('/:id', authMiddleware, roleGuard('employer'), validate(updateShiftSchema), shiftsController.update)

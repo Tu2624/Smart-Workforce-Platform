@@ -27,14 +27,14 @@ export class JobsService {
     if (role === 'employer') {
       conditions.push('employer_id = ?')
       values.push(userId)
-    } else {
-      // student sees only active jobs belonging to their employer
+    } else if (role === 'student') {
       const [profileRows] = await pool.query('SELECT employer_id FROM student_profiles WHERE user_id = ?', [userId])
       const studentEmployerId = (profileRows as any[])[0]?.employer_id || null
       conditions.push("status = 'active'")
       conditions.push('employer_id = ?')
       values.push(studentEmployerId)
     }
+    // admin: no filter — return all jobs
 
     if (query.status && role === 'employer') {
       conditions.push('status = ?')

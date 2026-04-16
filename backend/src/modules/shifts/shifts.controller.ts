@@ -57,6 +57,15 @@ export class ShiftsController {
     }
   }
 
+  async myStats(req: AuthRequest, res: Response) {
+    try {
+      const result = await shiftsService.getStudentDashboardStats(req.user!.id)
+      res.status(200).json(result)
+    } catch (err: any) {
+      res.status(500).json({ error: 'INTERNAL_SERVER_ERROR', message: err.message })
+    }
+  }
+
   async register(req: AuthRequest, res: Response) {
     try {
       const result = await shiftsService.registerShift(req.params.id, req.user!.id)

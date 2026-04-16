@@ -203,6 +203,16 @@ export class ShiftsService {
     return { message: 'Registration cancelled successfully' }
   }
 
+  async getStudentDashboardStats(studentId: string) {
+    const [rows] = await pool.query(
+      `SELECT COUNT(*) as upcoming FROM shift_registrations sr
+       JOIN shifts s ON sr.shift_id = s.id
+       WHERE sr.student_id = ? AND sr.status IN ('pending', 'approved') AND s.start_time > NOW()`,
+      [studentId]
+    )
+    return { upcoming_shifts: Number((rows as any[])[0].upcoming) }
+  }
+
   private _parseShift(shift: any) {
     return {
       ...shift,
