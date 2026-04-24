@@ -8,26 +8,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Current Status
 
-**Phase 4 complete.**
+Phase 7 complete. All features fully implemented. No pending items.
 
-**Implemented:**
-- All 12 DB migrations written and ready (`npm run migrate`)
-- Backend modules: `auth`, `employers`, `jobs`, `shifts`, `attendance`, `payroll`, `notification`, `admin`
-- Shift registration: `POST/DELETE /api/shifts/:id/register` + `GET /api/shifts/:id/registrations` + `PATCH /api/shifts/:id/registrations/:reg_id` (approve/reject)
-- Attendance: `POST /api/attendance/checkin|checkout`, `GET /api/attendance`, `GET /api/attendance/shift/:id`, `PATCH /api/attendance/:id/force-complete`
-- Payroll: `GET /api/payroll` (student), `GET /api/payroll/employer`, `GET /api/payroll/:id`, `PATCH /api/payroll/:id/confirm|paid`
-- Notifications: `GET /api/notifications`, `PATCH /api/notifications/:id/read`, `PATCH /api/notifications/read-all`
-- Admin: `GET /api/admin/stats|users`, `PATCH /api/admin/users/:id/toggle-status`
-- Background jobs: `weeklyScheduler.ts` (Mon 00:00 — auto-assign pending registrations), `autoDetectAbsent.ts` (every 30 min)
-- Utilities: `reputationCalc.ts`, `payrollCalc.ts`, `notificationHelper.ts`
-- Socket.io: `src/config/socket.ts` — `notifyUser()`, `notifyShiftRoom()`
-- Frontend: all Phase 4 pages + NotificationBell in DashboardLayout + `useNotificationSocket`
-
-**Not yet started:**
-- Seed data (`npm run seed` schema exists, data not populated)
-- Ratings system (DB migration exists, no endpoints)
-- Admin create employer endpoint
-- Payroll export (PDF/Excel)
+**Phase 7 additions:**
+- Bug fixes: Socket import, JWT secret hardening, array wrapping query, payroll race condition (INSERT IGNORE + UNIQUE), reputation in transaction, active shift end_time grace period, admin form validation + success toast
+- Employee Management UI: `/employer/employees` — list + create employees, shows temp password on creation
+- Reports page: fully wired to backend `/api/reports/*` endpoints with charts
+- Unit tests: 31 tests in `backend/tests/` (payrollCalc, attendance, reputation)
+- Production readiness: ErrorBoundary, Skeleton components, `.env.example` with comments, `jest.config.js`
 
 ## Commands
 
@@ -47,6 +35,7 @@ npm run seed         # seed test data
 npm run test         # Jest (runs from backend/tests/, always --runInBand)
 npm run test:watch   # Jest watch mode
 npm run lint         # ESLint on src/
+# Note: backend/tests/ is currently empty — no tests written yet
 
 # Run a single test file
 npx jest tests/payrollCalc.test.ts
@@ -85,6 +74,7 @@ docker-compose up -d   # starts mysql + backend (auto-migrates) + frontend
 - `/api/attendance` → `attendanceRouter`
 - `/api/payroll` → `payrollRouter`
 - `/api/notifications` → `notificationRouter`
+- `/api/ratings` → `ratingsRouter`
 
 **Module structure** — each feature is a self-contained folder under `modules/`:
 ```
@@ -113,15 +103,17 @@ All modules are fully implemented: `auth`, `employers`, `jobs`, `shifts`, `atten
 
 **Realtime** — Socket.io initialized in `src/config/socket.ts`. Use `notifyUser(userId, event, data)` or `notifyShiftRoom(shiftId, event, data)` from any service. Clients join personal rooms (`user_<id>`) and shift rooms (`shift_<id>`).
 
-**Background jobs** (`src/jobs/` — not yet created):
-- `autoAssignShift.ts` — cron `0 0 * * 1` (Monday 00:00); auto-assign pending registrations
-- `autoCalcPayroll.ts` — triggered real-time after checkout; fallback cron `0 0 * * *`
-- `sendReminders.ts` — cron `*/30 * * * *`; integrates `autoDetectAbsent` and `lowRegistrationAlert`
+**Background jobs** (`src/jobs/`):
+- `weeklyScheduler.ts` — cron `0 0 * * 1` (Monday 00:00); auto-assign pending registrations; emits `shift:approved` / `shift:rejected` to notified students
+- `autoDetectAbsent.ts` — cron `*/30 * * * *`; marks absent students; emits `absent_detected` notification
+- `lowRegistrationAlert.ts` — cron `0 4 * * 0` (Sunday 11:00 ICT = 04:00 UTC); finds shifts in next 7 days with 0 approved registrations; emits `shift:low_registration` to employer
 
-**Utilities** (`src/utils/` — not yet created):
-- `conflictCheck.ts` — shift overlap detection
-- `payrollCalc.ts` — wage calculation logic
+**Utilities** (`src/utils/`):
+- `payrollCalc.ts` — exports `calcPayroll(attendanceId)`: must be called after checkout and force-complete to create/update the monthly `payroll` + `payroll_item` records
 - `reputationCalc.ts` — student reputation scoring
+- `notificationHelper.ts` — exports `createNotification(userId, type, message, relatedId?)`: persists to DB **and** emits via Socket.io. Use this for user-visible persistent alerts. Call `notifyUser()` / `notifyShiftRoom()` directly only for transient real-time updates with no DB record.
+
+Notification types in use: `shift_approved`, `shift_rejected`, `shift_low_registration`, `absent_detected`, `payroll_updated`.
 
 ### Frontend (`frontend/src/`)
 
@@ -156,11 +148,15 @@ All modules are fully implemented: `auth`, `employers`, `jobs`, `shifts`, `atten
 
 **State** — Zustand stores in `store/`. `authStore.ts` uses `persist` middleware (localStorage key `auth-store`). JWT token is also stored directly in `localStorage` under key `token`.
 
-**API layer** — `api/client.ts` is an axios instance that auto-attaches `Authorization: Bearer <token>` and redirects to `/login` on 401. Resource modules: `api/jobs.ts`, `api/shifts.ts` (import this client).
+**API layer** — `api/client.ts` is an axios instance that auto-attaches `Authorization: Bearer <token>` and redirects to `/login` on 401. Resource modules: `api/auth.ts`, `api/jobs.ts`, `api/shifts.ts`, `api/attendance.ts`, `api/payroll.ts`, `api/notifications.ts`.
 
-**Sockets** — `hooks/useSocket.ts` and `hooks/useNotificationSocket.ts` (not yet used by pages — Phase 4+).
+**Sockets** — two Socket.io hooks:
+- `hooks/useNotificationSocket.ts` — listens for `notification:new`, `shift:approved`, `shift:rejected`, `shift:low_registration`; updates `useNotificationStore` and calls `bumpShiftRefresh()` on shift events to cascade re-fetches to shift-display pages.
+- `hooks/useAttendanceSocket.ts` — joins a specific shift room (`join:shift` event) and listens for `attendance:update`; used in `AttendanceOverview.tsx` to refresh live attendance data without polling.
 
-**Animations** — Framer Motion is used extensively throughout all pages. Follow existing animation patterns when adding new pages. `react-big-calendar` is installed and available for scheduling/calendar views (Phase 4+).
+`bumpShiftRefresh()` in `store/useNotificationStore.ts` increments a `shiftRefreshTick` counter; any page displaying shift state should subscribe to this counter and re-fetch when it changes.
+
+**Animations** — Framer Motion is used extensively throughout all pages. Follow existing animation patterns when adding new pages. `react-big-calendar` is installed and available for scheduling/calendar views.
 
 **Env vars** — `VITE_API_URL` (default `/api`) and `VITE_SOCKET_URL` configure the backend connection.
 
@@ -194,7 +190,18 @@ Changes that cross these boundaries require updating **both sides**:
 
 **Contract B — API endpoint ↔ Frontend API module**: Every endpoint in `docs/03-backend.md` has a direct counterpart in `frontend/src/api/*.ts`. Error shape is always `{ error: "ERROR_CODE", message: "..." }`.
 
-**Contract C — Socket.io event ↔ Frontend hook**: Event names defined in `docs/01-system-design.md §5` are the single source of truth. Events: `notification:new`, `attendance:update`, `shift:registered`, `shift:approved`, `shift:rejected`, `shift:low_registration`, `payroll:updated`, `shift:reminder`.
+**Contract C — Socket.io event ↔ Frontend hook**: Event names defined in `docs/01-system-design.md §5` are the single source of truth.
+
+| Event | Emitted by | Consumed by |
+|-------|-----------|-------------|
+| `notification:new` | `notificationHelper.ts` | `useNotificationSocket` → notification bell |
+| `attendance:update` | `attendance.service.ts` | `useAttendanceSocket` → `AttendanceOverview` |
+| `shift:registered` | `shifts.service.ts` | `useNotificationSocket` → `bumpShiftRefresh()` |
+| `shift:approved` | `weeklyScheduler.ts` | `useNotificationSocket` → `bumpShiftRefresh()` |
+| `shift:rejected` | `weeklyScheduler.ts` | `useNotificationSocket` → `bumpShiftRefresh()` |
+| `shift:low_registration` | `lowRegistrationAlert.ts` | `useNotificationSocket` → `bumpShiftRefresh()` |
+| `payroll:updated` | `payroll.service.ts` | `useNotificationSocket` → notification bell |
+| `shift:reminder` | `weeklyScheduler.ts` | `useNotificationSocket` → notification bell |
 
 **Contract D — Business rule constant ↔ test assertion**: Constants defined in `docs/01-system-design.md` must match implementation in utils and test assertions simultaneously.
 
@@ -207,7 +214,7 @@ total_pay       = MAX(0, scheduled_pay − late_deduction − early_deduction)
 ```
 `incomplete` attendance (no checkout) → `hours_worked = 0`, `total_pay = 0`.
 
-Late detection threshold: 5 min (defined in `03-backend.md`, not `01-system-design.md`).
+Late detection threshold: `LATE_THRESHOLD_MINUTES = 5` (constant in `attendance.service.ts`; also referenced in `03-backend.md`).
 
 Reputation deltas (scale 0–200, default 100):
 | Event | Delta |

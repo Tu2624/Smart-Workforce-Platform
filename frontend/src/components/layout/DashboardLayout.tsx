@@ -5,6 +5,9 @@ import { useNotificationStore } from '../../store/useNotificationStore'
 import { useNotificationSocket } from '../../hooks/useNotificationSocket'
 import { markAllRead } from '../../api/notifications'
 import Button from '../ui/Button'
+import { DevTimeOffset } from '../DevTimeOffset'
+
+const isDev = import.meta.env.DEV
 
 interface DashboardLayoutProps { children: React.ReactNode }
 
@@ -43,8 +46,10 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                   <NavLink to="/employer" end className={navLinkClass}>Dashboard</NavLink>
                   <NavLink to="/employer/jobs" className={navLinkClass}>Việc làm</NavLink>
                   <NavLink to="/employer/shifts" className={navLinkClass}>Ca làm</NavLink>
+                  <NavLink to="/employer/employees" className={navLinkClass}>Nhân viên</NavLink>
                   <NavLink to="/employer/attendance" className={navLinkClass}>Điểm danh</NavLink>
                   <NavLink to="/employer/payroll" className={navLinkClass}>Lương</NavLink>
+                  <NavLink to="/employer/reports" className={navLinkClass}>Báo cáo</NavLink>
                 </>
               )}
               {user?.role === 'student' && (
@@ -184,6 +189,8 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {children}
       </main>
+
+      {isDev && <DevTimeOffset />}
     </div>
   )
 }

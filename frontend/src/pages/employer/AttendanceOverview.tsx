@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import DashboardLayout from '../../components/layout/DashboardLayout'
 import Card from '../../components/ui/Card'
 import { containerVariants, itemVariants } from '../../utils/animations'
 import { getShifts } from '../../api/shifts'
 import { getShiftAttendance, forceComplete, updateNote } from '../../api/attendance'
+import { useAttendanceSocket } from '../../hooks/useAttendanceSocket'
 
 const STATUS_STYLES: Record<string, string> = {
   on_time: 'bg-emerald-100 text-emerald-700', late: 'bg-amber-100 text-amber-700',
@@ -30,6 +31,13 @@ const AttendanceOverview: React.FC = () => {
     }).catch(() => {})
   }, [])
 
+  const refreshAttendance = useCallback(() => {
+    if (!selectedShift) return
+    getShiftAttendance(selectedShift)
+      .then(d => setAttendance(d.attendance || []))
+      .catch(() => {})
+  }, [selectedShift])
+
   useEffect(() => {
     if (!selectedShift) return
     setLoadingAttend(true)
@@ -38,6 +46,8 @@ const AttendanceOverview: React.FC = () => {
       .catch(() => setAttendance([]))
       .finally(() => setLoadingAttend(false))
   }, [selectedShift])
+
+  useAttendanceSocket(selectedShift || null, refreshAttendance)
 
   const handleForceComplete = async (attId: string) => {
     if (!confirm('Xác nhận kết thúc ca bắt buộc? Thu nhập ca này sẽ là 0.')) return

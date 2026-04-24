@@ -9,7 +9,7 @@ let socket: Socket | null = null
 export function useNotificationSocket() {
   const user = useAuthStore(s => s.user)
   const token = useAuthStore(s => s.token)
-  const { addNotification, fetchNotifications } = useNotificationStore()
+  const { addNotification, fetchNotifications, bumpShiftRefresh } = useNotificationStore()
 
   useEffect(() => {
     if (!user || !token) return
@@ -18,13 +18,16 @@ export function useNotificationSocket() {
     socket = io(SOCKET_URL, { auth: { token } })
 
     socket.on('connect', () => {
-      socket?.emit('join:room', { room: `user_${user.id}` })
       fetchNotifications()
     })
 
     socket.on('notification:new', (data: Notification) => {
       addNotification(data)
     })
+
+    socket.on('shift:approved', () => bumpShiftRefresh())
+    socket.on('shift:rejected', () => bumpShiftRefresh())
+    socket.on('shift:low_registration', () => bumpShiftRefresh())
 
     return () => {
       socket?.disconnect()

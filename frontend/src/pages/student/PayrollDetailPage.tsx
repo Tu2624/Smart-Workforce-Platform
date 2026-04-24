@@ -4,12 +4,14 @@ import { motion } from 'framer-motion'
 import DashboardLayout from '../../components/layout/DashboardLayout'
 import Card from '../../components/ui/Card'
 import { containerVariants, itemVariants } from '../../utils/animations'
-import { getPayrollDetail } from '../../api/payroll'
+import { getPayrollDetail, exportPayrollExcel } from '../../api/payroll'
+import Button from '../../components/ui/Button'
 
 const StudentPayrollDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>()
   const [payroll, setPayroll] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [exporting, setExporting] = useState(false)
 
   useEffect(() => {
     if (id) getPayrollDetail(id).then(d => setPayroll(d.payroll)).catch(() => {}).finally(() => setLoading(false))
@@ -27,9 +29,17 @@ const StudentPayrollDetail: React.FC = () => {
 
         <motion.div variants={itemVariants}>
           <Card glass>
-            <h1 className="text-2xl font-black text-slate-900">
-              Tháng {payroll.period_start?.slice(5, 7)}/{payroll.period_start?.slice(0, 4)}
-            </h1>
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <h1 className="text-2xl font-black text-slate-900">
+                Tháng {payroll.period_start?.slice(5, 7)}/{payroll.period_start?.slice(0, 4)}
+              </h1>
+              <Button variant="ghost" size="sm" isLoading={exporting} onClick={async () => {
+                setExporting(true)
+                try { await exportPayrollExcel(id!, `luong-${payroll.period_start?.slice(0,7)}.xlsx`) }
+                catch { alert('Xuất file thất bại.') }
+                finally { setExporting(false) }
+              }}>↓ Xuất Excel</Button>
+            </div>
             <div className="grid grid-cols-3 gap-4 mt-4">
               <div>
                 <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Tổng giờ</p>

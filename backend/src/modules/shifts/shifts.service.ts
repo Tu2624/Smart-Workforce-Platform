@@ -1,9 +1,13 @@
 import { v4 as uuidv4 } from 'uuid'
 import pool from '../../config/database'
 import { createNotification } from '../../utils/notificationHelper'
+import { notifyUser, notifyShiftRoom } from '../../config/socket'
+import { adjustReputation } from '../../utils/reputationCalc'
+import { AppError } from '../../utils/appError'
+import { IShift, IShiftRegistration } from '../../types'
 
 export class ShiftsService {
-  async createShift(employerId: string, data: any) {
+  async createShift(employerId: string, data: Partial<IShift>): Promise<{ shift: IShift }> {
     const { job_id, start_time, end_time, max_workers, title, auto_assign } = data
 
     const [jobRows] = await pool.query('SELECT * FROM jobs WHERE id = ?', [job_id])
@@ -20,7 +24,7 @@ export class ShiftsService {
     return this.getShift(shiftId, 'employer')
   }
 
-  async listShifts(role: string, userId: string, query: any) {
+  async listShifts(role: string, userId: string, query: any): Promise<{ shifts: IShift[], pagination: { page: number, limit: number, total: number } }> {
     const page = parseInt(query.page) || 1
     const limit = parseInt(query.limit) || 20
     const offset = (page - 1) * limit
@@ -36,10 +40,15 @@ export class ShiftsService {
       const [profileRows] = await pool.query('SELECT employer_id FROM student_profiles WHERE user_id = ?', [userId])
       const studentEmployerId = (profileRows as any[])[0]?.employer_id || null
 
-      conditions.push("s.status = 'open'")
       conditions.push("j.status = 'active'")
       conditions.push('s.employer_id = ?')
       values.push(studentEmployerId)
+      // Show open shifts + any shift the student has a non-cancelled registration for
+      conditions.push(`(s.status = 'open' OR EXISTS (
+        SELECT 1 FROM shift_registrations sr
+        WHERE sr.shift_id = s.id AND sr.student_id = ? AND sr.status NOT IN ('cancelled')
+      ))`)
+      values.push(userId)
     }
     // admin: no filter — return all shifts
 
@@ -85,7 +94,7 @@ export class ShiftsService {
     return { shifts, pagination: { page, limit, total } }
   }
 
-  async getShift(shiftId: string, role: string, userId?: string) {
+  async getShift(shiftId: string, role: string, userId?: string): Promise<{ shift: IShift }> {
     const [rows] = await pool.query(
       `SELECT s.*, j.title as job_title, j.hourly_rate, j.status as job_status, j.description as job_description
        FROM shifts s
@@ -117,7 +126,7 @@ export class ShiftsService {
     return { shift: parsed }
   }
 
-  async updateShift(shiftId: string, employerId: string, data: any) {
+  async updateShift(shiftId: string, employerId: string, data: Partial<IShift>): Promise<{ shift: IShift }> {
     const [rows] = await pool.query('SELECT * FROM shifts WHERE id = ?', [shiftId])
     const shift = (rows as any[])[0]
     if (!shift) throw new Error('SHIFT_NOT_FOUND')
@@ -141,7 +150,7 @@ export class ShiftsService {
     return this.getShift(shiftId, 'employer')
   }
 
-  async deleteShift(shiftId: string, employerId: string) {
+  async deleteShift(shiftId: string, employerId: string): Promise<{ message: string }> {
     const [rows] = await pool.query('SELECT * FROM shifts WHERE id = ?', [shiftId])
     const shift = (rows as any[])[0]
     if (!shift) throw new Error('SHIFT_NOT_FOUND')
@@ -166,20 +175,18 @@ export class ShiftsService {
     return { message: 'Shift cancelled successfully' }
   }
 
-  async registerShift(shiftId: string, studentId: string) {
+  async registerShift(shiftId: string, studentId: string): Promise<{ message: string }> {
     const [profileRows] = await pool.query('SELECT employer_id FROM student_profiles WHERE user_id = ?', [studentId])
     const profile = (profileRows as any[])[0]
 
     const connection = await pool.getConnection()
     await connection.beginTransaction()
     try {
-      // Lock the shift row to prevent race conditions on current_workers
-      const [shiftRows] = await connection.query('SELECT * FROM shifts WHERE id = ? FOR UPDATE', [shiftId])
+      const [shiftRows] = await connection.query('SELECT * FROM shifts WHERE id = ?', [shiftId])
       const shift = (shiftRows as any[])[0]
       if (!shift) throw new Error('SHIFT_NOT_FOUND')
-      if (shift.status !== 'open') throw new Error('SHIFT_NOT_OPEN')
+      if (shift.status === 'cancelled' || shift.status === 'completed') throw new Error('SHIFT_NOT_OPEN')
       if (!profile || profile.employer_id.toLowerCase() !== shift.employer_id.toLowerCase()) throw new Error('FORBIDDEN')
-      if (shift.current_workers >= shift.max_workers) throw new Error('SHIFT_FULL')
 
       const regId = uuidv4()
       await connection.query(
@@ -187,14 +194,18 @@ export class ShiftsService {
         [regId, shiftId, studentId]
       )
 
-      const newCount = shift.current_workers + 1
-      const newStatus = newCount >= shift.max_workers ? 'full' : 'open'
-      await connection.query(
-        'UPDATE shifts SET current_workers = ?, status = ? WHERE id = ?',
-        [newCount, newStatus, shiftId]
-      )
-
       await connection.commit()
+
+      // Notify employer's shift room that a student registered
+      const [userRows] = await pool.query('SELECT full_name FROM users WHERE id = ?', [studentId])
+      const studentName = (userRows as any[])[0]?.full_name || ''
+      notifyShiftRoom(shiftId, 'shift:registered', {
+        shift_id: shiftId,
+        student_id: studentId,
+        student_name: studentName,
+        registered_at: new Date().toISOString(),
+      })
+
       return { message: 'Registration submitted successfully' }
     } catch (err: any) {
       await connection.rollback()
@@ -205,9 +216,15 @@ export class ShiftsService {
     }
   }
 
-  async cancelRegistration(shiftId: string, studentId: string) {
+  async cancelRegistration(shiftId: string, studentId: string): Promise<{ message: string }> {
+    // Pre-fetch shift start_time before transaction to avoid timezone drift issues inside tx
+    const [shiftRows] = await pool.query('SELECT start_time FROM shifts WHERE id = ?', [shiftId])
+    const shiftStart = new Date((shiftRows as any[])[0]?.start_time)
+    const hoursUntilStart = (shiftStart.getTime() - Date.now()) / 3600000
+
     const connection = await pool.getConnection()
     await connection.beginTransaction()
+    let wasApproved = false
     try {
       const [rows] = await connection.query(
         "SELECT * FROM shift_registrations WHERE shift_id = ? AND student_id = ? AND status IN ('pending', 'approved')",
@@ -216,28 +233,37 @@ export class ShiftsService {
       const reg = (rows as any[])[0]
       if (!reg) throw new Error('REGISTRATION_NOT_FOUND')
 
+      wasApproved = reg.status === 'approved'
       await connection.query("UPDATE shift_registrations SET status = 'cancelled' WHERE id = ?", [reg.id])
 
-      // Decrement current_workers and reopen if shift was full
-      await connection.query(
-        `UPDATE shifts SET
-           current_workers = GREATEST(0, current_workers - 1),
-           status = CASE WHEN status = 'full' THEN 'open' ELSE status END
-         WHERE id = ?`,
-        [shiftId]
-      )
+      // Only decrement approved slot count — pending registrations don't affect current_workers
+      if (wasApproved) {
+        await connection.query(
+          `UPDATE shifts SET
+             current_workers = GREATEST(0, current_workers - 1),
+             status = CASE WHEN status = 'full' THEN 'open' ELSE status END
+           WHERE id = ?`,
+          [shiftId]
+        )
+      }
 
       await connection.commit()
-      return { message: 'Registration cancelled successfully' }
     } catch (err: any) {
       await connection.rollback()
       throw err
     } finally {
       connection.release()
     }
+
+    // Adjust reputation after commit — runs outside tx so partial failure doesn't affect cancellation
+    if (wasApproved && hoursUntilStart < 24) {
+      await adjustReputation(studentId, 'cancel_approved_late', `Hủy ca đã duyệt trong vòng 24h: shift ${shiftId}`)
+    }
+
+    return { message: 'Registration cancelled successfully' }
   }
 
-  async listRegistrations(shiftId: string, employerId: string) {
+  async listRegistrations(shiftId: string, employerId: string): Promise<{ registrations: any[] }> {
     const [shiftRows] = await pool.query('SELECT employer_id FROM shifts WHERE id = ?', [shiftId])
     const shift = (shiftRows as any[])[0]
     if (!shift) throw new Error('SHIFT_NOT_FOUND')
@@ -251,10 +277,10 @@ export class ShiftsService {
        WHERE sr.shift_id = ? ORDER BY sp.reputation_score DESC, sr.registered_at ASC`,
       [shiftId]
     )
-    return { registrations: rows }
+    return { registrations: rows as any[] }
   }
 
-  async reviewRegistration(shiftId: string, regId: string, employerId: string, status: 'approved' | 'rejected') {
+  async reviewRegistration(shiftId: string, regId: string, employerId: string, status: 'approved' | 'rejected'): Promise<{ registration: IShiftRegistration }> {
     const [shiftRows] = await pool.query('SELECT * FROM shifts WHERE id = ?', [shiftId])
     const shift = (shiftRows as any[])[0]
     if (!shift) throw new Error('SHIFT_NOT_FOUND')
@@ -265,23 +291,28 @@ export class ShiftsService {
     if (!reg) throw new Error('REGISTRATION_NOT_FOUND')
     if (reg.status !== 'pending') throw new Error('ALREADY_REVIEWED')
 
-    if (status === 'approved' && shift.current_workers >= shift.max_workers) throw new Error('SHIFT_FULL')
-
     const connection = await pool.getConnection()
     await connection.beginTransaction()
     try {
+      if (status === 'approved') {
+        const [updateResult] = await connection.query(
+          `UPDATE shifts 
+           SET current_workers = current_workers + 1, 
+               status = CASE WHEN current_workers + 1 >= max_workers THEN 'full' ELSE 'open' END
+           WHERE id = ? AND current_workers < max_workers AND status = 'open'`,
+          [shiftId]
+        )
+
+        if ((updateResult as any).affectedRows === 0) {
+          throw new AppError(400, 'Ca làm việc đã đầy hoặc không còn mở', 'SHIFT_FULL_OR_CLOSED')
+        }
+      }
+
       await connection.query(
         'UPDATE shift_registrations SET status = ?, reviewed_by = ?, reviewed_at = NOW() WHERE id = ?',
         [status, employerId, regId]
       )
-      if (status === 'approved') {
-        const newCount = shift.current_workers + 1
-        const newStatus = newCount >= shift.max_workers ? 'full' : 'open'
-        await connection.query(
-          'UPDATE shifts SET current_workers = ?, status = ? WHERE id = ?',
-          [newCount, newStatus, shiftId]
-        )
-      }
+
       await connection.commit()
     } catch (err) {
       await connection.rollback()
@@ -297,27 +328,39 @@ export class ShiftsService {
       await createNotification(reg.student_id, 'shift_approved', 'Đăng ký ca làm được duyệt',
         `Ca ${shiftInfo?.title || ''} ngày ${new Date(shiftInfo?.start_time).toLocaleDateString('vi-VN')} đã được chấp nhận.`,
         { shift_id: shiftId, registration_id: regId })
+      notifyUser(reg.student_id, 'shift:approved', { shift_id: shiftId, registration_id: regId })
     } else {
       await createNotification(reg.student_id, 'shift_rejected', 'Đăng ký ca làm bị từ chối',
         `Ca ${shiftInfo?.title || ''} ngày ${new Date(shiftInfo?.start_time).toLocaleDateString('vi-VN')} đã bị từ chối.`,
         { shift_id: shiftId, registration_id: regId })
+      notifyUser(reg.student_id, 'shift:rejected', { shift_id: shiftId, registration_id: regId })
     }
 
     const [updated] = await pool.query('SELECT * FROM shift_registrations WHERE id = ?', [regId])
-    return { registration: (updated as any[])[0] }
+    return { registration: (updated as any[])[0] as IShiftRegistration }
   }
 
-  async getStudentDashboardStats(studentId: string) {
+  async getStudentDashboardStats(studentId: string): Promise<{ upcoming_shifts: number, monthly_earnings: number }> {
     const [rows] = await pool.query(
       `SELECT COUNT(*) as upcoming FROM shift_registrations sr
        JOIN shifts s ON sr.shift_id = s.id
        WHERE sr.student_id = ? AND sr.status IN ('pending', 'approved') AND s.start_time > NOW()`,
       [studentId]
     )
-    return { upcoming_shifts: Number((rows as any[])[0].upcoming) }
+
+    const [[payrollRow]] = await pool.query(
+      `SELECT COALESCE(SUM(total_amount), 0) as monthly_earnings FROM payroll
+       WHERE student_id = ? AND period_start = DATE_FORMAT(NOW(), '%Y-%m-01')`,
+      [studentId]
+    ) as any
+
+    return {
+      upcoming_shifts: Number((rows as any[])[0].upcoming),
+      monthly_earnings: parseFloat(payrollRow.monthly_earnings),
+    }
   }
 
-  private _parseShift(shift: any) {
+  private _parseShift(shift: any): IShift {
     return {
       ...shift,
       auto_assign: Boolean(shift.auto_assign),
@@ -329,7 +372,7 @@ export class ShiftsService {
         status: shift.job_status,
         description: shift.job_description,
       } : undefined,
-    }
+    } as IShift
   }
 }
 

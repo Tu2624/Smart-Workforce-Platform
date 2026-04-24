@@ -44,6 +44,19 @@ export class PayrollController {
     }
   }
 
+  async exportExcel(req: AuthRequest, res: Response) {
+    try {
+      const buffer = await payrollService.exportExcel(req.params.id, req.user!.id, req.user!.role)
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+      res.setHeader('Content-Disposition', `attachment; filename="payroll-${req.params.id}.xlsx"`)
+      res.send(buffer)
+    } catch (err: any) {
+      if (err.message === 'NOT_FOUND') return res.status(404).json({ error: 'NOT_FOUND', message: 'Payroll not found' })
+      if (err.message === 'FORBIDDEN') return res.status(403).json({ error: 'FORBIDDEN', message: 'Access denied' })
+      res.status(500).json({ error: 'INTERNAL_SERVER_ERROR', message: err.message })
+    }
+  }
+
   async markPaid(req: AuthRequest, res: Response) {
     try {
       const result = await payrollService.updateStatus(req.params.id, req.user!.id, 'paid')

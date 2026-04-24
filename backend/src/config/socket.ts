@@ -1,5 +1,6 @@
 import { Server } from 'socket.io'
 import http from 'http'
+import jwt from 'jsonwebtoken'
 
 let io: Server
 
@@ -8,8 +9,21 @@ export function initSocket(server: http.Server) {
     cors: { origin: process.env.CORS_ORIGIN || 'http://localhost:5173', credentials: true },
   })
 
+  io.use((socket, next) => {
+    const token = socket.handshake.auth?.token
+    if (!token) return next(new Error('Unauthorized'))
+    try {
+      const payload = jwt.verify(token, process.env.JWT_SECRET!) as any
+      socket.data.user = payload
+      next()
+    } catch {
+      next(new Error('Unauthorized'))
+    }
+  })
+
   io.on('connection', (socket) => {
-    socket.on('join:room', ({ room }: { room: string }) => socket.join(room))
+    const userId = socket.data.user?.id
+    if (userId) socket.join(`user_${userId}`)
     socket.on('join:shift', ({ shift_id }: { shift_id: string }) => socket.join(`shift_${shift_id}`))
   })
 

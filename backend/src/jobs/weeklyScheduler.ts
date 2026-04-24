@@ -1,6 +1,7 @@
 import cron from 'node-cron'
 import pool from '../config/database'
 import { createNotification } from '../utils/notificationHelper'
+import { notifyUser } from '../config/socket'
 
 async function runWeeklyScheduler() {
   console.log('[Scheduler] Running weekly shift assignment...')
@@ -46,6 +47,20 @@ async function runWeeklyScheduler() {
           await createNotification(reg.student_id, 'shift_rejected', 'Đăng ký ca làm bị từ chối',
             `Ca ngày ${new Date(reg.start_time).toLocaleDateString('vi-VN')} không được xếp do hết chỗ.`,
             { shift_id: shiftId, registration_id: reg.id })
+          notifyUser(reg.student_id, 'shift:rejected', { shift_id: shiftId, registration_id: reg.id })
+          continue
+        }
+
+        // Block students with reputation score < 50 from auto-assign
+        if (reg.reputation_score < 50) {
+          await connection.query(
+            "UPDATE shift_registrations SET status = 'rejected', reviewed_at = NOW() WHERE id = ?",
+            [reg.id]
+          )
+          await createNotification(reg.student_id, 'shift_rejected', 'Đăng ký ca làm bị từ chối',
+            `Ca ngày ${new Date(reg.start_time).toLocaleDateString('vi-VN')} bị từ chối do điểm uy tín dưới 50.`,
+            { shift_id: shiftId, registration_id: reg.id })
+          notifyUser(reg.student_id, 'shift:rejected', { shift_id: shiftId, registration_id: reg.id })
           continue
         }
 
@@ -64,6 +79,7 @@ async function runWeeklyScheduler() {
           await createNotification(reg.student_id, 'shift_rejected', 'Đăng ký ca làm bị từ chối',
             `Ca ngày ${new Date(reg.start_time).toLocaleDateString('vi-VN')} bị từ chối do trùng lịch.`,
             { shift_id: shiftId, registration_id: reg.id })
+          notifyUser(reg.student_id, 'shift:rejected', { shift_id: shiftId, registration_id: reg.id })
           continue
         }
 
@@ -81,6 +97,7 @@ async function runWeeklyScheduler() {
         await createNotification(reg.student_id, 'shift_approved', 'Đăng ký ca làm được duyệt',
           `Ca ngày ${new Date(reg.start_time).toLocaleDateString('vi-VN')} đã được xếp lịch.`,
           { shift_id: shiftId, registration_id: reg.id })
+        notifyUser(reg.student_id, 'shift:approved', { shift_id: shiftId, registration_id: reg.id })
       }
 
       const newCount = shift.current_workers + approved

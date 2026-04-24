@@ -13,8 +13,12 @@ import { adminRouter } from './modules/admin/admin.router'
 import { attendanceRouter } from './modules/attendance/attendance.router'
 import { payrollRouter } from './modules/payroll/payroll.router'
 import { notificationRouter } from './modules/notification/notification.router'
+import { ratingsRouter } from './modules/ratings/ratings.router'
+import { reportsRouter } from './modules/reports/reports.router'
+import { devRouter } from './modules/dev/dev.router'
 import { startWeeklyScheduler } from './jobs/weeklyScheduler'
 import { startAbsentDetector } from './jobs/autoDetectAbsent'
+import { startLowRegAlert } from './jobs/lowRegistrationAlert'
 
 const app = express()
 const server = http.createServer(app)
@@ -38,14 +42,29 @@ app.use('/api/admin',         adminRouter)
 app.use('/api/attendance',    attendanceRouter)
 app.use('/api/payroll',       payrollRouter)
 app.use('/api/notifications', notificationRouter)
+app.use('/api/ratings',       ratingsRouter)
+app.use('/api/reports',       reportsRouter)
+app.use('/api/dev',           devRouter)
 
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.error(err.stack)
-  res.status(err.status || 500).json({
-    error: err.code || 'INTERNAL_SERVER_ERROR',
-    message: err.message || 'Something went wrong!',
+  if (process.env.NODE_ENV !== 'test') {
+    console.error(err.stack)
+  }
+
+  const statusCode = err.statusCode || 500
+  const errorCode = err.errorCode || 'INTERNAL_SERVER_ERROR'
+  const message = err.message || 'Something went wrong!'
+
+  res.status(statusCode).json({
+    error: errorCode,
+    message: message,
   })
 })
+
+if (!process.env.JWT_SECRET) {
+  console.error('[FATAL] JWT_SECRET is not set. Set it in .env before starting the server.')
+  process.exit(1)
+}
 
 const PORT = process.env.PORT || 3001
 
@@ -54,6 +73,7 @@ if (require.main === module) {
     console.log(`Server listening on port ${PORT}`)
     startWeeklyScheduler()
     startAbsentDetector()
+    startLowRegAlert()
   })
 }
 

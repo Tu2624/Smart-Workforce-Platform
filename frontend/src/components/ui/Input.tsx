@@ -28,8 +28,8 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
               w-full px-4 py-3 bg-slate-50 border transition-all duration-200 outline-none rounded-xl
               ${leftIcon ? 'pl-11' : ''}
               ${rightIcon ? 'pr-11' : ''}
-              ${error 
-                ? 'border-red-300 focus:border-red-500 focus:ring-4 focus:ring-red-100' 
+              ${error
+                ? 'border-red-300 focus:border-red-500 focus:ring-4 focus:ring-red-100'
                 : 'border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100'
               }
               ${className}

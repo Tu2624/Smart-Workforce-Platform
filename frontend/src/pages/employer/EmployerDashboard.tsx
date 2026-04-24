@@ -29,7 +29,7 @@ const EmployerDashboard: React.FC = () => {
   const [error, setError] = useState('')
   const [created, setCreated] = useState<CreatedEmployee | null>(null)
   const [copied, setCopied] = useState(false)
-  const [stats, setStats] = useState<{ employees: number; today_shifts: number } | null>(null)
+  const [stats, setStats] = useState<{ employees: number; today_shifts: number; current_month_payroll: number } | null>(null)
 
   React.useEffect(() => {
     apiClient.get('/employers/stats')
@@ -127,8 +127,12 @@ const EmployerDashboard: React.FC = () => {
 
           <Card glass delay={0.2}>
             <p className="text-xs font-black text-emerald-600 uppercase tracking-widest mb-2">Chi phí lao động</p>
-            <p className="text-4xl font-black text-slate-900">—</p>
-            <p className="text-slate-600 text-sm mt-1 font-medium">Tính năng đang phát triển</p>
+            <p className="text-4xl font-black text-slate-900 truncate">
+              {stats != null ? stats.current_month_payroll.toLocaleString('vi-VN') + 'đ' : '—'}
+            </p>
+            <p className="text-slate-600 text-sm mt-1 font-medium">
+              {stats != null ? 'Tháng này' : 'Đang tải...'}
+            </p>
           </Card>
 
           <Card glass delay={0.3}>

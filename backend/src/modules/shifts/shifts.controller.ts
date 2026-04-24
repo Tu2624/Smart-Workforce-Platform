@@ -1,122 +1,119 @@
 import { Response } from 'express'
 import { AuthRequest } from '../../middlewares/auth.middleware'
 import { shiftsService } from './shifts.service'
+import { asyncHandler } from '../../utils/asyncHandler'
+import { AppError } from '../../utils/appError'
 
 export class ShiftsController {
-  async create(req: AuthRequest, res: Response) {
+  create = asyncHandler(async (req: AuthRequest, res: Response) => {
     try {
       const result = await shiftsService.createShift(req.user!.id, req.body)
       res.status(201).json(result)
     } catch (err: any) {
-      if (err.message === 'JOB_NOT_FOUND') return res.status(404).json({ error: 'JOB_NOT_FOUND', message: 'Job not found' })
-      if (err.message === 'FORBIDDEN') return res.status(403).json({ error: 'FORBIDDEN', message: 'You do not own this job' })
-      res.status(500).json({ error: 'INTERNAL_SERVER_ERROR', message: err.message })
+      if (err.message === 'JOB_NOT_FOUND') throw new AppError(404, 'Không tìm thấy công việc', 'JOB_NOT_FOUND')
+      if (err.message === 'FORBIDDEN') throw new AppError(403, 'Bạn không sở hữu công việc này', 'FORBIDDEN')
+      throw err
     }
-  }
+  })
 
-  async list(req: AuthRequest, res: Response) {
-    try {
-      const result = await shiftsService.listShifts(req.user!.role, req.user!.id, req.query)
-      res.status(200).json(result)
-    } catch (err: any) {
-      res.status(500).json({ error: 'INTERNAL_SERVER_ERROR', message: err.message })
-    }
-  }
+  list = asyncHandler(async (req: AuthRequest, res: Response) => {
+    const result = await shiftsService.listShifts(req.user!.role, req.user!.id, req.query)
+    res.status(200).json(result)
+  })
 
-  async getOne(req: AuthRequest, res: Response) {
+  getOne = asyncHandler(async (req: AuthRequest, res: Response) => {
     try {
       const result = await shiftsService.getShift(req.params.id, req.user!.role, req.user!.id)
       res.status(200).json(result)
     } catch (err: any) {
-      if (err.message === 'SHIFT_NOT_FOUND') return res.status(404).json({ error: 'SHIFT_NOT_FOUND', message: 'Shift not found' })
-      if (err.message === 'FORBIDDEN') return res.status(403).json({ error: 'FORBIDDEN', message: 'You do not have access to this shift' })
-      res.status(500).json({ error: 'INTERNAL_SERVER_ERROR', message: err.message })
+      if (err.message === 'SHIFT_NOT_FOUND') throw new AppError(404, 'Không tìm thấy ca làm việc', 'SHIFT_NOT_FOUND')
+      if (err.message === 'FORBIDDEN') throw new AppError(403, 'Bạn không có quyền truy cập ca làm việc này', 'FORBIDDEN')
+      throw err
     }
-  }
+  })
 
-  async update(req: AuthRequest, res: Response) {
+  update = asyncHandler(async (req: AuthRequest, res: Response) => {
     try {
       const result = await shiftsService.updateShift(req.params.id, req.user!.id, req.body)
       res.status(200).json(result)
     } catch (err: any) {
-      if (err.message === 'SHIFT_NOT_FOUND') return res.status(404).json({ error: 'SHIFT_NOT_FOUND', message: 'Shift not found' })
-      if (err.message === 'FORBIDDEN') return res.status(403).json({ error: 'FORBIDDEN', message: 'You do not own this shift' })
-      if (err.message === 'CANNOT_EDIT_SHIFT') return res.status(400).json({ error: 'CANNOT_EDIT_SHIFT', message: "Can only edit shifts with status 'open'" })
-      res.status(500).json({ error: 'INTERNAL_SERVER_ERROR', message: err.message })
+      if (err.message === 'SHIFT_NOT_FOUND') throw new AppError(404, 'Không tìm thấy ca làm việc', 'SHIFT_NOT_FOUND')
+      if (err.message === 'FORBIDDEN') throw new AppError(403, 'Bạn không sở hữu ca làm việc này', 'FORBIDDEN')
+      if (err.message === 'CANNOT_EDIT_SHIFT') throw new AppError(400, "Chỉ có thể chỉnh sửa ca làm việc ở trạng thái 'mở'", 'CANNOT_EDIT_SHIFT')
+      throw err
     }
-  }
+  })
 
-  async remove(req: AuthRequest, res: Response) {
+  remove = asyncHandler(async (req: AuthRequest, res: Response) => {
     try {
       const result = await shiftsService.deleteShift(req.params.id, req.user!.id)
       res.status(200).json(result)
     } catch (err: any) {
-      if (err.message === 'SHIFT_NOT_FOUND') return res.status(404).json({ error: 'SHIFT_NOT_FOUND', message: 'Shift not found' })
-      if (err.message === 'FORBIDDEN') return res.status(403).json({ error: 'FORBIDDEN', message: 'You do not own this shift' })
-      res.status(500).json({ error: 'INTERNAL_SERVER_ERROR', message: err.message })
+      if (err.message === 'SHIFT_NOT_FOUND') throw new AppError(404, 'Không tìm thấy ca làm việc', 'SHIFT_NOT_FOUND')
+      if (err.message === 'FORBIDDEN') throw new AppError(403, 'Bạn không sở hữu ca làm việc này', 'FORBIDDEN')
+      throw err
     }
-  }
+  })
 
-  async listRegistrations(req: AuthRequest, res: Response) {
+  listRegistrations = asyncHandler(async (req: AuthRequest, res: Response) => {
     try {
       const result = await shiftsService.listRegistrations(req.params.id, req.user!.id)
       res.status(200).json(result)
     } catch (err: any) {
-      if (err.message === 'SHIFT_NOT_FOUND') return res.status(404).json({ error: 'SHIFT_NOT_FOUND', message: 'Shift not found' })
-      if (err.message === 'FORBIDDEN') return res.status(403).json({ error: 'FORBIDDEN', message: 'You do not own this shift' })
-      res.status(500).json({ error: 'INTERNAL_SERVER_ERROR', message: err.message })
+      if (err.message === 'SHIFT_NOT_FOUND') throw new AppError(404, 'Không tìm thấy ca làm việc', 'SHIFT_NOT_FOUND')
+      if (err.message === 'FORBIDDEN') throw new AppError(403, 'Bạn không sở hữu ca làm việc này', 'FORBIDDEN')
+      throw err
     }
-  }
+  })
 
-  async reviewRegistration(req: AuthRequest, res: Response) {
+  reviewRegistration = asyncHandler(async (req: AuthRequest, res: Response) => {
     try {
       const result = await shiftsService.reviewRegistration(req.params.id, req.params.reg_id, req.user!.id, req.body.status)
       res.status(200).json(result)
     } catch (err: any) {
       const map: Record<string, [number, string]> = {
-        SHIFT_NOT_FOUND:       [404, 'Shift not found'],
-        FORBIDDEN:             [403, 'You do not own this shift'],
-        REGISTRATION_NOT_FOUND:[404, 'Registration not found'],
-        ALREADY_REVIEWED:      [409, 'Registration already reviewed'],
-        SHIFT_FULL:            [409, 'Shift is already full'],
+        SHIFT_NOT_FOUND:       [404, 'Không tìm thấy ca làm việc'],
+        FORBIDDEN:             [403, 'Bạn không sở hữu ca làm việc này'],
+        REGISTRATION_NOT_FOUND:[404, 'Không tìm thấy đơn đăng ký'],
+        ALREADY_REVIEWED:      [409, 'Đơn đăng ký đã được duyệt trước đó'],
+        SHIFT_FULL:            [409, 'Ca làm việc đã đầy'],
       }
-      const [status, message] = map[err.message] ?? [500, err.message]
-      res.status(status).json({ error: err.message, message })
+      const errorDetail = map[err.message]
+      if (errorDetail) {
+        throw new AppError(errorDetail[0], errorDetail[1], err.message)
+      }
+      throw err
     }
-  }
+  })
 
-  async myStats(req: AuthRequest, res: Response) {
-    try {
-      const result = await shiftsService.getStudentDashboardStats(req.user!.id)
-      res.status(200).json(result)
-    } catch (err: any) {
-      res.status(500).json({ error: 'INTERNAL_SERVER_ERROR', message: err.message })
-    }
-  }
+  myStats = asyncHandler(async (req: AuthRequest, res: Response) => {
+    const result = await shiftsService.getStudentDashboardStats(req.user!.id)
+    res.status(200).json(result)
+  })
 
-  async register(req: AuthRequest, res: Response) {
+  register = asyncHandler(async (req: AuthRequest, res: Response) => {
     try {
       const result = await shiftsService.registerShift(req.params.id, req.user!.id)
       res.status(201).json(result)
     } catch (err: any) {
-      if (err.message === 'SHIFT_NOT_FOUND') return res.status(404).json({ error: 'SHIFT_NOT_FOUND', message: 'Shift not found' })
-      if (err.message === 'SHIFT_NOT_OPEN') return res.status(400).json({ error: 'SHIFT_NOT_OPEN', message: 'This shift is not open for registration' })
-      if (err.message === 'FORBIDDEN') return res.status(403).json({ error: 'FORBIDDEN', message: 'You cannot register for shifts outside your employer' })
-      if (err.message === 'SHIFT_FULL') return res.status(409).json({ error: 'SHIFT_FULL', message: 'This shift is already full' })
-      if (err.message === 'ALREADY_REGISTERED') return res.status(409).json({ error: 'ALREADY_REGISTERED', message: 'You have already registered for this shift' })
-      res.status(500).json({ error: 'INTERNAL_SERVER_ERROR', message: err.message })
+      if (err.message === 'SHIFT_NOT_FOUND') throw new AppError(404, 'Không tìm thấy ca làm việc', 'SHIFT_NOT_FOUND')
+      if (err.message === 'SHIFT_NOT_OPEN') throw new AppError(400, 'Ca làm việc này không mở đăng ký', 'SHIFT_NOT_OPEN')
+      if (err.message === 'FORBIDDEN') throw new AppError(403, 'Bạn không thể đăng ký ca làm việc bên ngoài công ty của mình', 'FORBIDDEN')
+      if (err.message === 'SHIFT_FULL') throw new AppError(409, 'Ca làm việc đã đầy', 'SHIFT_FULL')
+      if (err.message === 'ALREADY_REGISTERED') throw new AppError(409, 'Bạn đã đăng ký ca làm việc này rồi', 'ALREADY_REGISTERED')
+      throw err
     }
-  }
+  })
 
-  async cancelRegistration(req: AuthRequest, res: Response) {
+  cancelRegistration = asyncHandler(async (req: AuthRequest, res: Response) => {
     try {
       const result = await shiftsService.cancelRegistration(req.params.id, req.user!.id)
       res.status(200).json(result)
     } catch (err: any) {
-      if (err.message === 'REGISTRATION_NOT_FOUND') return res.status(404).json({ error: 'REGISTRATION_NOT_FOUND', message: 'No pending registration found for this shift' })
-      res.status(500).json({ error: 'INTERNAL_SERVER_ERROR', message: err.message })
+      if (err.message === 'REGISTRATION_NOT_FOUND') throw new AppError(404, 'Không tìm thấy đơn đăng ký cho ca làm việc này', 'REGISTRATION_NOT_FOUND')
+      throw err
     }
-  }
+  })
 }
 
 export const shiftsController = new ShiftsController()

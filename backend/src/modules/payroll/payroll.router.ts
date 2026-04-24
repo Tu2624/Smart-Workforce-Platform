@@ -8,6 +8,7 @@ const router = Router()
 router.get('/',              authMiddleware, roleGuard('student'), payrollController.listMine)
 router.get('/employer',      authMiddleware, roleGuard('employer'), payrollController.listEmployer)
 router.get('/:id',           authMiddleware, roleGuard('student', 'employer'), payrollController.getDetail)
+router.get('/:id/export',    authMiddleware, roleGuard('student', 'employer'), payrollController.exportExcel)
 router.patch('/:id/confirm', authMiddleware, roleGuard('employer'), payrollController.confirm)
 router.patch('/:id/paid',    authMiddleware, roleGuard('employer'), payrollController.markPaid)
 

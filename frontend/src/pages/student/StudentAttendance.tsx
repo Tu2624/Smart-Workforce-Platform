@@ -18,34 +18,36 @@ const STATUS_LABELS: Record<string, string> = {
 const StudentAttendance: React.FC = () => {
   const [currentShift, setCurrentShift] = useState<any>(null)
   const [currentAttend, setCurrentAttend] = useState<any>(null)
+  const [upcomingShifts, setUpcomingShifts] = useState<any[]>([])
   const [history, setHistory] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
   const [message, setMessage] = useState('')
 
-  const now = new Date()
-
   const fetchData = async () => {
     setLoading(true)
     try {
+      const now = new Date()
       const [shiftsData, attendData] = await Promise.all([
-        getShifts({ limit: 50 }),
+        getShifts({ limit: 100 }),
         getMyAttendance({ limit: 20 }),
       ])
 
-      // Find current active shift (student has approved registration and shift is ongoing now)
-      const activeShift = (shiftsData.shifts || []).find((s: any) => {
-        const start = new Date(s.start_time)
-        const end = new Date(s.end_time)
-        return now >= start && now <= end && s.my_registration_status === 'approved'
-      })
-      setCurrentShift(activeShift || null)
+      const myShifts = (shiftsData.shifts || []).filter((s: any) => s.my_registration_status === 'approved')
+      const attendMap = new Map((attendData.attendance || []).map((a: any) => [a.shift_id, a]))
 
-      // Check if already checked in for current shift
-      if (activeShift) {
-        const att = (attendData.attendance || []).find((a: any) => a.shift_id === activeShift.id)
-        setCurrentAttend(att || null)
-      }
+      // Active = approved + already started + within 2h grace period after end_time
+      const active = myShifts.find((s: any) => {
+        const att = attendMap.get(s.id) as any
+        const nowMs = now.getTime()
+        const endWithGrace = new Date(s.end_time).getTime() + 2 * 3600 * 1000
+        return new Date(s.start_time).getTime() <= nowMs && nowMs <= endWithGrace && !att?.check_out_time
+      })
+      setCurrentShift(active || null)
+      setCurrentAttend(active ? (attendMap.get(active.id) || null) : null)
+
+      // Upcoming = approved + hasn't started yet
+      setUpcomingShifts(myShifts.filter((s: any) => new Date(s.start_time) > now))
 
       setHistory(attendData.attendance || [])
     } finally { setLoading(false) }
@@ -138,6 +140,30 @@ const StudentAttendance: React.FC = () => {
             )}
           </Card>
         </motion.div>
+
+        {/* Upcoming approved shifts */}
+        {upcomingShifts.length > 0 && (
+          <motion.div variants={itemVariants}>
+            <Card glass>
+              <h2 className="text-lg font-black text-slate-900 mb-3">Ca làm sắp tới ({upcomingShifts.length})</h2>
+              <div className="space-y-2">
+                {upcomingShifts.map(s => (
+                  <div key={s.id} className="flex items-center justify-between gap-4 py-2.5 border-b border-slate-100 last:border-0">
+                    <div>
+                      <p className="font-bold text-slate-900 text-sm">{s.job_title || s.title || 'Ca làm việc'}</p>
+                      <p className="text-xs text-slate-500">
+                        {new Date(s.start_time).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' })}
+                        {' → '}
+                        {new Date(s.end_time).toLocaleTimeString('vi-VN', { timeStyle: 'short' })}
+                      </p>
+                    </div>
+                    <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-indigo-100 text-indigo-700">Đã duyệt</span>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          </motion.div>
+        )}
 
         {/* History */}
         <motion.div variants={itemVariants}>

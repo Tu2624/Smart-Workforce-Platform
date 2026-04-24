@@ -5,15 +5,18 @@ import type { Notification } from '../types'
 interface NotificationState {
   notifications: Notification[]
   unreadCount: number
+  shiftRefreshTick: number
   fetchNotifications: () => Promise<void>
   markRead: (id: string) => Promise<void>
   markAllRead: () => Promise<void>
   addNotification: (n: Notification) => void
+  bumpShiftRefresh: () => void
 }
 
 export const useNotificationStore = create<NotificationState>((set, get) => ({
   notifications: [],
   unreadCount: 0,
+  shiftRefreshTick: 0,
 
   fetchNotifications: async () => {
     try {
@@ -44,4 +47,6 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       unreadCount: s.unreadCount + 1,
     }))
   },
+
+  bumpShiftRefresh: () => set(s => ({ shiftRefreshTick: s.shiftRefreshTick + 1 })),
 }))

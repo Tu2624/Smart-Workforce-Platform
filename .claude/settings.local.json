@@ -19,7 +19,9 @@
       "Bash(find *)",
       "Bash(docker restart *)",
       "Bash(docker exec sw_mysql *)",
-      "Bash(python -m json.tool)"
+      "Bash(python -m json.tool)",
+      "Bash(npx tsc *)",
+      "Bash(xargs ls *)"
     ]
   }
 }

@@ -80,9 +80,16 @@ export class EmployersService {
     )
     const todayShiftsCount = (shiftRows as any[])[0].count
 
+    const [[payrollRow]] = await pool.query(
+      `SELECT COALESCE(SUM(total_amount), 0) as total FROM payroll
+       WHERE employer_id = ? AND period_start = DATE_FORMAT(CURDATE(), '%Y-%m-01')`,
+      [employerId]
+    ) as any
+
     return {
-      employees: employeeCount,
-      today_shifts: todayShiftsCount
+      employees: Number(employeeCount),
+      today_shifts: Number(todayShiftsCount),
+      current_month_payroll: parseFloat(payrollRow.total),
     }
   }
 }

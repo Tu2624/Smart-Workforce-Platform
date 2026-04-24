@@ -372,7 +372,7 @@ CREATE TABLE reputation_events (
 |-------|---------|-----------|
 | `notification:new` | `{ id, type, title, body, metadata }` | Specific user |
 | `attendance:update` | `{ shift_id, student_id, status, check_in_time }` | Employer |
-| `shift:registered` | `{ shift_id, student_id, student_name }` | Employer |
+| `shift:registered` | `{ shift_id, student_id, student_name, registered_at }` | Employer (shift room) |
 | `shift:approved` | `{ shift_id, registration_id }` | Student |
 | `shift:rejected` | `{ shift_id, registration_id, reason }` | Student |
 | `shift:low_registration` | `{ shift_id, title, current_count, max_workers }` | Employer |

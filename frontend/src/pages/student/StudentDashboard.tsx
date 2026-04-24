@@ -9,10 +9,14 @@ import apiClient from '../../api/client'
 const StudentDashboard: React.FC = () => {
   const user = useAuthStore((state) => state.user)
   const [upcomingShifts, setUpcomingShifts] = useState<number | null>(null)
+  const [monthlyEarnings, setMonthlyEarnings] = useState<number | null>(null)
 
   useEffect(() => {
     apiClient.get('/shifts/my-stats')
-      .then(res => setUpcomingShifts(res.data.upcoming_shifts))
+      .then(res => {
+        setUpcomingShifts(res.data.upcoming_shifts)
+        setMonthlyEarnings(res.data.monthly_earnings)
+      })
       .catch(console.error)
   }, [])
 
@@ -41,8 +45,12 @@ const StudentDashboard: React.FC = () => {
 
           <Card glass delay={0.2}>
             <p className="text-xs font-black text-emerald-600 uppercase tracking-widest mb-2">Thu nhập tháng này</p>
-            <p className="text-4xl font-black text-slate-900">—</p>
-            <p className="text-slate-600 text-sm mt-1 font-medium">Chưa có dữ liệu</p>
+            <p className="text-4xl font-black text-slate-900 truncate">
+              {monthlyEarnings != null ? monthlyEarnings.toLocaleString('vi-VN') + 'đ' : '—'}
+            </p>
+            <p className="text-slate-600 text-sm mt-1 font-medium">
+              {monthlyEarnings != null ? 'Tháng này' : 'Đang tải...'}
+            </p>
           </Card>
 
           <Card glass delay={0.3}>

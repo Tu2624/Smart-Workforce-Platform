@@ -30,7 +30,14 @@ const LoginPage = () => {
       else if (user?.role === 'employer') navigate('/employer')
       else navigate('/student')
     } catch (err: any) {
-      setError('Thông tin tài khoản không đúng')
+      const status = err?.response?.status
+      if (status === 401) {
+        setError('Email hoặc mật khẩu không đúng')
+      } else if (status >= 400 && status < 500) {
+        setError('Thông tin đăng nhập không hợp lệ')
+      } else {
+        setError('Lỗi kết nối máy chủ. Vui lòng thử lại sau.')
+      }
       setPassword('')
     } finally {
       setLoading(false)

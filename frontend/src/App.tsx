@@ -1,5 +1,6 @@
 import React from 'react'
 import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import { ProtectedRoute, RoleRoute } from './components/AuthGuard'
 import LoginPage from './pages/auth/LoginPage'
 import RegisterPage from './pages/auth/RegisterPage'
@@ -21,6 +22,8 @@ import AttendanceOverview from './pages/employer/AttendanceOverview'
 import PayrollList from './pages/employer/PayrollList'
 import EmployerPayrollDetail from './pages/employer/PayrollDetailPage'
 import NotificationPage from './pages/shared/NotificationPage'
+import ReportsPage from './pages/employer/ReportsPage'
+import EmployeesPage from './pages/employer/EmployeesPage'
 
 const Unauthorized = () => <div className="p-8 text-red-500"><h1>Unauthorized Access</h1></div>
 
@@ -54,6 +57,8 @@ const router = createBrowserRouter([
           { path: '/employer/attendance',       element: <AttendanceOverview /> },
           { path: '/employer/payroll',          element: <PayrollList /> },
           { path: '/employer/payroll/:id',      element: <EmployerPayrollDetail /> },
+          { path: '/employer/employees',        element: <EmployeesPage /> },
+          { path: '/employer/reports',          element: <ReportsPage /> },
           { path: '/employer/notifications',    element: <NotificationPage /> },
         ],
       },
@@ -81,7 +86,11 @@ const router = createBrowserRouter([
 })
 
 function App() {
-  return <RouterProvider router={router} future={{ v7_startTransition: true }} />
+  return (
+    <ErrorBoundary>
+      <RouterProvider router={router} future={{ v7_startTransition: true }} />
+    </ErrorBoundary>
+  )
 }
 
 export default App

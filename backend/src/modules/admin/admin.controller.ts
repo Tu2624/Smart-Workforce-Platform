@@ -21,6 +21,16 @@ export class AdminController {
     }
   }
 
+  async createEmployer(req: AuthRequest, res: Response) {
+    try {
+      const result = await adminService.createEmployer(req.body)
+      res.status(201).json(result)
+    } catch (err: any) {
+      if (err.message === 'EMAIL_TAKEN') return res.status(409).json({ error: 'EMAIL_TAKEN', message: 'Email đã được sử dụng' })
+      res.status(500).json({ error: 'INTERNAL_SERVER_ERROR', message: err.message })
+    }
+  }
+
   async toggleUserStatus(req: AuthRequest, res: Response) {
     try {
       const result = await adminService.toggleUserStatus(req.params.id)

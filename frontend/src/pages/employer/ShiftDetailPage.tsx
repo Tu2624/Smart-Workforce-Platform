@@ -1,12 +1,15 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
+import { io, Socket } from 'socket.io-client'
 import DashboardLayout from '../../components/layout/DashboardLayout'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import { containerVariants, itemVariants } from '../../utils/animations'
 import { getShift, updateShift, deleteShift, getShiftRegistrations, reviewRegistration } from '../../api/shifts'
 import { getShiftAttendance } from '../../api/attendance'
+import { createRating, getStudentRatings } from '../../api/ratings'
+import { useAuthStore } from '../../store/useAuthStore'
 
 const STATUS_STYLES: Record<string, string> = {
   open: 'bg-emerald-100 text-emerald-700', full: 'bg-red-100 text-red-600',
@@ -35,6 +38,8 @@ const toDatetimeLocal = (dt: string) => new Date(dt).toISOString().slice(0, 16)
 
 const ShiftDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>()
+  const token = useAuthStore(s => s.token)
+  const socketRef = useRef<Socket | null>(null)
 
   const [shift, setShift] = useState<any>(null)
   const [loading, setLoading] = useState(true)
@@ -44,13 +49,20 @@ const ShiftDetailPage: React.FC = () => {
   const [editError, setEditError] = useState('')
   const [cancelConfirm, setCancelConfirm] = useState(false)
   const [cancelLoading, setCancelLoading] = useState(false)
+  const [cancelError, setCancelError] = useState('')
 
   const [registrations, setRegistrations] = useState<any[]>([])
   const [regLoading, setRegLoading] = useState(false)
   const [reviewingId, setReviewingId] = useState<string | null>(null)
+  const [reviewError, setReviewError] = useState('')
 
   const [attendance, setAttendance] = useState<any[]>([])
   const [attendLoading, setAttendLoading] = useState(false)
+
+  const [existingRatings, setExistingRatings] = useState<Record<string, number>>({})
+  const [ratingForm, setRatingForm] = useState<Record<string, { score: number; comment: string }>>({})
+  const [ratingLoading, setRatingLoading] = useState<string | null>(null)
+  const [ratingError, setRatingError] = useState('')
 
   const fetchShift = async () => {
     if (!id) return
@@ -86,11 +98,58 @@ const ShiftDetailPage: React.FC = () => {
     } catch {} finally { setAttendLoading(false) }
   }
 
+  const fetchRatings = async (approvedStudentIds: string[]) => {
+    const results = await Promise.all(
+      approvedStudentIds.map(async (sid) => {
+        try {
+          const data = await getStudentRatings(sid)
+          const hit = (data.ratings as any[]).find((r: any) => r.shift_id === id)
+          return hit ? ({ sid, score: hit.score as number }) : null
+        } catch {
+          return null
+        }
+      })
+    )
+    const ratedMap: Record<string, number> = {}
+    for (const entry of results) {
+      if (entry) ratedMap[entry.sid] = entry.score
+    }
+    setExistingRatings(ratedMap)
+  }
+
   useEffect(() => {
     fetchShift()
     fetchRegistrations()
     fetchAttendance()
   }, [id])
+
+  useEffect(() => {
+    if (shift?.status === 'completed') {
+      const approved = registrations.filter(r => r.status === 'approved').map(r => r.student_id as string).filter(Boolean)
+      if (approved.length) fetchRatings(approved)
+    }
+  }, [shift?.status, registrations])
+
+  // Real-time: refresh registrations when a student registers
+  useEffect(() => {
+    if (!id || !token) return
+    const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3001'
+    const socket: Socket = io(SOCKET_URL, { auth: { token } })
+    socketRef.current = socket
+
+    socket.on('connect', () => {
+      socket.emit('join:shift', { shift_id: id })
+    })
+    socket.on('shift:registered', () => {
+      fetchRegistrations()
+      fetchShift()
+    })
+
+    return () => {
+      socket.disconnect()
+      socketRef.current = null
+    }
+  }, [id, token])
 
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -112,17 +171,39 @@ const ShiftDetailPage: React.FC = () => {
 
   const handleCancel = async () => {
     setCancelLoading(true)
-    try { await deleteShift(id!); fetchShift() }
-    finally { setCancelLoading(false); setCancelConfirm(false) }
+    setCancelError('')
+    try {
+      await deleteShift(id!)
+      fetchShift()
+      setCancelConfirm(false)
+    } catch (err: any) {
+      setCancelError(err.response?.data?.message || 'Huỷ ca thất bại.')
+    } finally {
+      setCancelLoading(false)
+    }
+  }
+
+  const handleRate = async (studentId: string) => {
+    const form = ratingForm[studentId]
+    if (!form?.score) { setRatingError('Vui lòng chọn số sao.'); return }
+    setRatingLoading(studentId)
+    setRatingError('')
+    try {
+      await createRating({ shift_id: id!, student_id: studentId, score: form.score, comment: form.comment })
+      setExistingRatings(prev => ({ ...prev, [studentId]: form.score }))
+    } catch (err: any) {
+      setRatingError(err.response?.data?.message || 'Đánh giá thất bại.')
+    } finally { setRatingLoading(null) }
   }
 
   const handleReview = async (regId: string, status: 'approved' | 'rejected') => {
     setReviewingId(regId)
+    setReviewError('')
     try {
       await reviewRegistration(id!, regId, status)
       await Promise.all([fetchRegistrations(), fetchShift()])
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Thao tác thất bại.')
+      setReviewError(err.response?.data?.message || 'Thao tác thất bại.')
     } finally { setReviewingId(null) }
   }
 
@@ -165,18 +246,21 @@ const ShiftDetailPage: React.FC = () => {
                     </div>
                   </div>
                   {shift.status !== 'cancelled' && (
-                    <div className="flex gap-2 flex-wrap">
-                      {canEdit && <Button variant="secondary" size="sm" onClick={() => setEditing(true)}>Chỉnh sửa</Button>}
-                      {!cancelConfirm
-                        ? <Button variant="danger" size="sm" onClick={() => setCancelConfirm(true)}>Huỷ ca</Button>
-                        : (
-                          <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-3 py-2">
-                            <span className="text-red-600 text-xs font-semibold">Xác nhận huỷ?</span>
-                            <Button variant="danger" size="sm" isLoading={cancelLoading} onClick={handleCancel}>Huỷ ca</Button>
-                            <Button variant="ghost" size="sm" onClick={() => setCancelConfirm(false)}>Không</Button>
-                          </div>
-                        )
-                      }
+                    <div className="flex flex-col items-end gap-2">
+                      <div className="flex gap-2 flex-wrap justify-end">
+                        {canEdit && <Button variant="secondary" size="sm" onClick={() => setEditing(true)}>Chỉnh sửa</Button>}
+                        {!cancelConfirm
+                          ? <Button variant="danger" size="sm" onClick={() => { setCancelConfirm(true); setCancelError('') }}>Huỷ ca</Button>
+                          : (
+                            <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-xl px-3 py-2">
+                              <span className="text-red-600 text-xs font-semibold">Xác nhận huỷ?</span>
+                              <Button variant="danger" size="sm" isLoading={cancelLoading} onClick={handleCancel}>Huỷ ca</Button>
+                              <Button variant="ghost" size="sm" onClick={() => setCancelConfirm(false)}>Không</Button>
+                            </div>
+                          )
+                        }
+                      </div>
+                      {cancelError && <p className="text-red-500 text-xs font-semibold">{cancelError}</p>}
                     </div>
                   )}
                 </div>
@@ -233,6 +317,7 @@ const ShiftDetailPage: React.FC = () => {
             <h2 className="text-lg font-black text-slate-900 mb-4">
               Danh sách đăng ký ({registrations.length})
             </h2>
+            {reviewError && <p className="text-red-500 text-sm font-semibold mb-3">{reviewError}</p>}
             {regLoading ? (
               <p className="text-slate-400 text-sm text-center py-6">Đang tải...</p>
             ) : registrations.length === 0 ? (
@@ -310,6 +395,62 @@ const ShiftDetailPage: React.FC = () => {
             )}
           </Card>
         </motion.div>
+        {/* Ratings — chỉ hiện khi shift completed */}
+        {shift.status === 'completed' && registrations.filter(r => r.status === 'approved').length > 0 && (
+          <motion.div variants={itemVariants}>
+            <Card glass>
+              <h2 className="text-lg font-black text-slate-900 mb-4">Đánh giá nhân viên</h2>
+              {ratingError && <p className="text-red-500 text-sm font-semibold mb-3">{ratingError}</p>}
+              <div className="space-y-4">
+                {registrations.filter(r => r.status === 'approved').map(reg => {
+                  const studentId = reg.student_id as string
+                  const rated = existingRatings[studentId]
+                  const form = ratingForm[studentId] || { score: 0, comment: '' }
+                  return (
+                    <div key={reg.id} className="border border-slate-100 rounded-xl p-4">
+                      <div className="flex items-center justify-between flex-wrap gap-3">
+                        <div>
+                          <p className="font-bold text-slate-900 text-sm">{reg.full_name}</p>
+                          <p className="text-xs text-slate-500">{reg.email}</p>
+                        </div>
+                        {rated ? (
+                          <div className="flex items-center gap-1">
+                            {[1,2,3,4,5].map(s => (
+                              <span key={s} className={`text-lg ${s <= rated ? 'text-amber-400' : 'text-slate-200'}`}>★</span>
+                            ))}
+                            <span className="text-xs text-slate-400 ml-1">Đã đánh giá</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-3 flex-wrap">
+                            <div className="flex gap-1">
+                              {[1,2,3,4,5].map(s => (
+                                <button key={s} onClick={() => setRatingForm(prev => ({ ...prev, [studentId]: { ...form, score: s } }))}
+                                  className={`text-2xl transition-colors ${s <= form.score ? 'text-amber-400' : 'text-slate-200 hover:text-amber-300'}`}>
+                                  ★
+                                </button>
+                              ))}
+                            </div>
+                            <input
+                              type="text" placeholder="Nhận xét (tuỳ chọn)"
+                              value={form.comment}
+                              onChange={e => setRatingForm(prev => ({ ...prev, [studentId]: { ...form, comment: e.target.value } }))}
+                              className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-100 w-48"
+                            />
+                            <Button variant="primary" size="sm"
+                              isLoading={ratingLoading === studentId}
+                              onClick={() => handleRate(studentId)}>
+                              Gửi
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </Card>
+          </motion.div>
+        )}
       </motion.div>
     </DashboardLayout>
   )

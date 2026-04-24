@@ -11,6 +11,7 @@ interface Stats {
   total_users: number
   total_jobs: number
   total_shifts: number
+  total_payroll_paid: number
 }
 
 const AdminDashboard: React.FC = () => {
@@ -26,7 +27,11 @@ const AdminDashboard: React.FC = () => {
     { label: 'Tổng người dùng', color: 'text-indigo-400', value: stats?.total_users },
     { label: 'Tổng việc làm', color: 'text-emerald-600', value: stats?.total_jobs },
     { label: 'Tổng ca làm', color: 'text-amber-600', value: stats?.total_shifts },
-    { label: 'Doanh thu hệ thống', color: 'text-rose-500', value: null },
+    {
+      label: 'Tổng lương đã trả',
+      color: 'text-rose-500',
+      value: stats != null ? stats.total_payroll_paid.toLocaleString('vi-VN') + 'đ' : undefined,
+    },
   ]
 
   return (
@@ -41,11 +46,11 @@ const AdminDashboard: React.FC = () => {
           {statCards.map((stat, i) => (
             <Card key={stat.label} glass delay={i * 0.1}>
               <p className={`text-xs font-black ${stat.color} uppercase tracking-widest mb-2`}>{stat.label}</p>
-              <p className="text-4xl font-black text-slate-900">
+              <p className="text-4xl font-black text-slate-900 truncate">
                 {stat.value != null ? stat.value : '—'}
               </p>
               <p className="text-slate-600 text-sm mt-1 font-medium">
-                {stat.value != null ? 'Tổng cộng' : 'Chưa có dữ liệu'}
+                {stat.value != null ? 'Tổng cộng' : 'Đang tải...'}
               </p>
             </Card>
           ))}

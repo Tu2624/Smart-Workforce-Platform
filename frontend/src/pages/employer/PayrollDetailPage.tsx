@@ -5,13 +5,14 @@ import DashboardLayout from '../../components/layout/DashboardLayout'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import { containerVariants, itemVariants } from '../../utils/animations'
-import { getPayrollDetail, confirmPayroll, markPayrollPaid } from '../../api/payroll'
+import { getPayrollDetail, confirmPayroll, markPayrollPaid, exportPayrollExcel } from '../../api/payroll'
 
 const EmployerPayrollDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>()
   const [payroll, setPayroll] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState(false)
+  const [exporting, setExporting] = useState(false)
 
   const fetchDetail = () => {
     if (id) getPayrollDetail(id).then(d => setPayroll(d.payroll)).catch(() => {}).finally(() => setLoading(false))
@@ -45,7 +46,13 @@ const EmployerPayrollDetail: React.FC = () => {
                   Tháng {payroll.period_start?.slice(5, 7)}/{payroll.period_start?.slice(0, 4)}
                 </p>
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
+                <Button variant="ghost" size="sm" isLoading={exporting} onClick={async () => {
+                  setExporting(true)
+                  try { await exportPayrollExcel(id!, `luong-${payroll.student_name}-${payroll.period_start?.slice(0,7)}.xlsx`) }
+                  catch { alert('Xuất file thất bại.') }
+                  finally { setExporting(false) }
+                }}>↓ Xuất Excel</Button>
                 {payroll.status === 'draft' && (
                   <Button variant="secondary" isLoading={actionLoading} onClick={() => handleAction(confirmPayroll)}>Xác nhận</Button>
                 )}

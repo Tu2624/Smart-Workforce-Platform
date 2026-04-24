@@ -14,3 +14,11 @@ export const confirmPayroll = (id: string) =>
 
 export const markPayrollPaid = (id: string) =>
   apiClient.patch(`/payroll/${id}/paid`).then(r => r.data)
+
+export const exportPayrollExcel = async (id: string, filename: string) => {
+  const res = await apiClient.get(`/payroll/${id}/export`, { responseType: 'blob' })
+  const url = URL.createObjectURL(new Blob([res.data]))
+  const a = document.createElement('a')
+  a.href = url; a.download = filename; a.click()
+  URL.revokeObjectURL(url)
+}

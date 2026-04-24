@@ -1,8 +1,9 @@
 import { v4 as uuidv4 } from 'uuid'
 import pool from '../../config/database'
+import { IJob } from '../../types'
 
 export class JobsService {
-  async createJob(employerId: string, data: any) {
+  async createJob(employerId: string, data: Partial<IJob>): Promise<{ job: IJob }> {
     const { title, hourly_rate, max_workers, description, required_skills } = data
     const jobId = uuidv4()
 
@@ -16,7 +17,7 @@ export class JobsService {
     return { job: this._parseJob(job) }
   }
 
-  async listJobs(role: string, userId: string, query: any) {
+  async listJobs(role: string, userId: string, query: any): Promise<{ jobs: IJob[], pagination: any }> {
     const page = parseInt(query.page) || 1
     const limit = parseInt(query.limit) || 20
     const offset = (page - 1) * limit
@@ -34,7 +35,6 @@ export class JobsService {
       conditions.push('employer_id = ?')
       values.push(studentEmployerId)
     }
-    // admin: no filter — return all jobs
 
     if (query.status && role === 'employer') {
       conditions.push('status = ?')
@@ -57,7 +57,7 @@ export class JobsService {
     }
   }
 
-  async getJob(jobId: string, role?: string, userId?: string) {
+  async getJob(jobId: string, role?: string, userId?: string): Promise<{ job: IJob }> {
     const [rows] = await pool.query('SELECT * FROM jobs WHERE id = ?', [jobId])
     const job = (rows as any[])[0]
     if (!job) throw new Error('JOB_NOT_FOUND')
@@ -73,7 +73,7 @@ export class JobsService {
     return { job: this._parseJob(job) }
   }
 
-  async updateJob(jobId: string, employerId: string, data: any) {
+  async updateJob(jobId: string, employerId: string, data: Partial<IJob>): Promise<{ job: IJob }> {
     const [rows] = await pool.query('SELECT * FROM jobs WHERE id = ?', [jobId])
     const job = (rows as any[])[0]
     if (!job) throw new Error('JOB_NOT_FOUND')
@@ -96,7 +96,7 @@ export class JobsService {
     return this.getJob(jobId)
   }
 
-  async updateJobStatus(jobId: string, employerId: string, status: string) {
+  async updateJobStatus(jobId: string, employerId: string, status: string): Promise<{ job: IJob }> {
     const [rows] = await pool.query('SELECT * FROM jobs WHERE id = ?', [jobId])
     const job = (rows as any[])[0]
     if (!job) throw new Error('JOB_NOT_FOUND')
@@ -106,7 +106,7 @@ export class JobsService {
     return this.getJob(jobId)
   }
 
-  async deleteJob(jobId: string, employerId: string) {
+  async deleteJob(jobId: string, employerId: string): Promise<{ message: string }> {
     const [rows] = await pool.query('SELECT * FROM jobs WHERE id = ?', [jobId])
     const job = (rows as any[])[0]
     if (!job) throw new Error('JOB_NOT_FOUND')
@@ -122,7 +122,7 @@ export class JobsService {
     return { message: 'Job deleted successfully' }
   }
 
-  private _parseJob(job: any) {
+  private _parseJob(job: any): IJob {
     return {
       ...job,
       hourly_rate: parseFloat(job.hourly_rate),

@@ -4,6 +4,7 @@ import { adjustReputation } from '../../utils/reputationCalc'
 import { createNotification } from '../../utils/notificationHelper'
 import { notifyShiftRoom } from '../../config/socket'
 import { calcPayroll } from '../payroll/payroll.service'
+import { getNow } from '../../utils/serverTime'
 
 const LATE_THRESHOLD_MINUTES = 5
 
@@ -27,7 +28,7 @@ export class AttendanceService {
     const shift = (shiftRows as any[])[0]
     if (!shift) throw new Error('SHIFT_NOT_FOUND')
 
-    const now = new Date()
+    const now = getNow()
     const startTime = new Date(shift.start_time)
     const lateMinutes = Math.max(0, Math.floor((now.getTime() - startTime.getTime()) / 60000))
     const isLate = lateMinutes > LATE_THRESHOLD_MINUTES
@@ -67,7 +68,7 @@ export class AttendanceService {
     const att = (rows as any[])[0]
     if (!att) throw new Error('ATTENDANCE_NOT_FOUND')
 
-    const now = new Date()
+    const now = getNow()
     const endTime = new Date(att.end_time)
     const earlyMinutes = Math.max(0, Math.floor((endTime.getTime() - now.getTime()) / 60000))
 
@@ -135,10 +136,10 @@ export class AttendanceService {
     if (!att) throw new Error('ATTENDANCE_NOT_FOUND')
     if (att.employer_id !== employerId) throw new Error('FORBIDDEN')
     if (att.check_out_time) throw new Error('ALREADY_COMPLETED')
-    if (new Date() < new Date(att.end_time)) throw new Error('SHIFT_NOT_ENDED')
+    if (getNow() < new Date(att.end_time)) throw new Error('SHIFT_NOT_ENDED')
 
     // Check force-checkout limit (3/student/month)
-    const now = new Date()
+    const now = getNow()
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
     const [[limitRow]] = await pool.query(
       `SELECT COUNT(*) as count FROM attendance

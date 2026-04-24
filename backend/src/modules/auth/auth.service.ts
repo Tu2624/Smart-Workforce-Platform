@@ -3,13 +3,20 @@ import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import { v4 as uuidv4 } from 'uuid'
 import pool from '../../config/database'
+import { AppError } from '../../utils/appError'
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your_super_secret_key_here'
+const JWT_SECRET = process.env.JWT_SECRET!
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d'
 
 export class AuthService {
   async registerEmployer(data: any) {
     const { email, password, full_name, phone, company_name, address, description } = data
+
+    const [existing] = await pool.query('SELECT id FROM users WHERE email = ?', [email])
+    if ((existing as any[]).length > 0) {
+      throw new AppError(400, 'Email đã tồn tại', 'EMAIL_ALREADY_EXISTS')
+    }
+
     const userId = uuidv4()
     const passwordHash = await bcrypt.hash(password, 10)
 
@@ -48,7 +55,7 @@ export class AuthService {
     const user = (rows as any[])[0]
 
     if (!user || !(await bcrypt.compare(password, user.password_hash))) {
-      throw new Error('INVALID_CREDENTIALS')
+      throw new AppError(401, 'Email hoặc mật khẩu không chính xác', 'INVALID_CREDENTIALS')
     }
 
     const token = jwt.sign(
