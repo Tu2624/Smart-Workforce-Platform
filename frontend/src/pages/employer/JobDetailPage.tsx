@@ -11,9 +11,14 @@ import { getShifts, createShift } from '../../api/shifts'
 import { Job, Shift } from '../../types'
 
 const STATUS_STYLES: Record<string, string> = {
-  active: 'bg-emerald-100 text-emerald-700', paused: 'bg-amber-100 text-amber-700', closed: 'bg-slate-100 text-slate-500',
-  open: 'bg-emerald-100 text-emerald-700', full: 'bg-red-100 text-red-600',
-  ongoing: 'bg-indigo-100 text-indigo-700', completed: 'bg-slate-100 text-slate-500', cancelled: 'bg-rose-50 text-rose-400',
+  active: 'bg-emerald-500/10 text-emerald-400 ring-1 ring-inset ring-emerald-500/20',
+  paused: 'bg-amber-500/10 text-amber-400 ring-1 ring-inset ring-amber-500/20',
+  closed: 'bg-slate-500/10 text-slate-400 ring-1 ring-inset ring-slate-500/20',
+  open: 'bg-emerald-500/10 text-emerald-400 ring-1 ring-inset ring-emerald-500/20',
+  full: 'bg-red-500/10 text-red-400 ring-1 ring-inset ring-red-500/20',
+  ongoing: 'bg-cyan-500/10 text-cyan-400 ring-1 ring-inset ring-cyan-500/20',
+  completed: 'bg-slate-500/10 text-slate-400 ring-1 ring-inset ring-slate-500/20',
+  cancelled: 'bg-rose-500/10 text-rose-400 ring-1 ring-inset ring-rose-500/20',
 }
 const STATUS_LABELS: Record<string, string> = {
   active: 'Đang tuyển', paused: 'Tạm dừng', closed: 'Đã đóng',
@@ -119,21 +124,21 @@ const JobDetailPage: React.FC = () => {
 
         {/* Job info card */}
         <motion.div variants={itemVariants}>
-          <Card glass>
+          <Card className="p-6">
             {!editing ? (
               <div>
                 <div className="flex items-start justify-between gap-4 flex-wrap">
                   <div>
                     <div className="flex items-center gap-3 flex-wrap">
-                      <h1 className="text-2xl font-black text-slate-900">{job.title}</h1>
-                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-black ${STATUS_STYLES[job.status]}`}>{STATUS_LABELS[job.status]}</span>
+                      <h1 className="text-xl font-display font-bold text-white">{job.title}</h1>
+                      <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_STYLES[job.status]}`}>{STATUS_LABELS[job.status]}</span>
                     </div>
-                    <p className="text-slate-500 mt-2">{job.hourly_rate.toLocaleString('vi-VN')}đ/giờ · Tối đa {job.max_workers} người</p>
-                    {job.description && <p className="text-slate-600 text-sm mt-2">{job.description}</p>}
+                    <p className="text-slate-400 text-sm mt-2">{job.hourly_rate.toLocaleString('vi-VN')}đ/giờ · Tối đa {job.max_workers} người</p>
+                    {job.description && <p className="text-slate-500 text-sm mt-2">{job.description}</p>}
                     {job.required_skills?.length > 0 && (
                       <div className="flex gap-2 flex-wrap mt-3">
                         {job.required_skills.map(s => (
-                          <span key={s} className="bg-indigo-50 text-indigo-600 text-xs font-semibold px-2 py-0.5 rounded-full">{s}</span>
+                          <span key={s} className="bg-cyan-500/10 text-cyan-400 text-xs font-medium px-2.5 py-0.5 rounded-full ring-1 ring-inset ring-cyan-500/20">{s}</span>
                         ))}
                       </div>
                     )}
@@ -148,11 +153,12 @@ const JobDetailPage: React.FC = () => {
               </div>
             ) : (
               <div>
-                <h2 className="text-xl font-black text-slate-900 mb-5">Chỉnh sửa việc làm</h2>
+                <h2 className="text-base font-display font-semibold text-slate-100 mb-5">Chỉnh sửa việc làm</h2>
                 <AnimatePresence mode="wait">
                   {editError && (
-                    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
-                      className="mb-4 bg-red-50 text-red-600 px-4 py-3 rounded-xl text-sm font-semibold border border-red-100">{editError}</motion.div>
+                    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden mb-4">
+                      <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-xl text-sm">{editError}</div>
+                    </motion.div>
                   )}
                 </AnimatePresence>
                 <form onSubmit={handleEditSubmit} className="space-y-4">
@@ -176,7 +182,7 @@ const JobDetailPage: React.FC = () => {
         {/* Shifts section */}
         <motion.div variants={itemVariants}>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-black text-white">Ca làm việc ({shifts.length})</h2>
+            <h2 className="text-base font-display font-semibold text-slate-200">Ca làm việc ({shifts.length})</h2>
             <Button variant="primary" size="sm" onClick={() => { setShowShiftForm(true); setShiftError('') }}>+ Tạo ca</Button>
           </div>
 
@@ -184,15 +190,20 @@ const JobDetailPage: React.FC = () => {
             {showShiftForm && (
               <motion.div key="shift-form" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
                 exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }} className="overflow-hidden mb-4">
-                <Card glass>
+                <Card className="p-6">
                   <div className="flex items-center justify-between mb-5">
-                    <h3 className="text-lg font-black text-slate-900">Tạo ca làm mới</h3>
-                    <button onClick={() => setShowShiftForm(false)} className="text-slate-400 hover:text-slate-600 text-2xl leading-none">×</button>
+                    <h3 className="text-base font-display font-semibold text-slate-100">Tạo ca làm mới</h3>
+                    <button onClick={() => setShowShiftForm(false)} className="text-slate-500 hover:text-slate-300 transition-colors" aria-label="Đóng">
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
                   </div>
                   <AnimatePresence mode="wait">
                     {shiftError && (
-                      <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
-                        className="mb-4 bg-red-50 text-red-600 px-4 py-3 rounded-xl text-sm font-semibold border border-red-100">{shiftError}</motion.div>
+                      <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden mb-4">
+                        <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-xl text-sm">{shiftError}</div>
+                      </motion.div>
                     )}
                   </AnimatePresence>
                   <form onSubmit={handleShiftSubmit} className="space-y-4">
@@ -200,22 +211,22 @@ const JobDetailPage: React.FC = () => {
                       <Input id="shift-title" label="Tên ca (tuỳ chọn)" placeholder="Ca sáng thứ 2" value={shiftForm.title} onChange={e => setShiftForm({ ...shiftForm, title: e.target.value })} />
                       <Input id="shift-max" label="Số lượng tối đa *" type="number" required placeholder="3" value={shiftForm.max_workers} onChange={e => setShiftForm({ ...shiftForm, max_workers: e.target.value })} />
                       <div>
-                        <label className="block text-sm font-semibold text-slate-700 mb-1.5">Bắt đầu *</label>
+                        <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-widest mb-1.5">Bắt đầu *</label>
                         <input type="datetime-local" required value={shiftForm.start_time}
                           onChange={e => setShiftForm({ ...shiftForm, start_time: e.target.value })}
-                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500" />
+                          className="w-full bg-slate-900/80 border border-white/[0.10] text-slate-100 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/15 focus:border-cyan-500/60 transition-all" />
                       </div>
                       <div>
-                        <label className="block text-sm font-semibold text-slate-700 mb-1.5">Kết thúc *</label>
+                        <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-widest mb-1.5">Kết thúc *</label>
                         <input type="datetime-local" required value={shiftForm.end_time}
                           onChange={e => setShiftForm({ ...shiftForm, end_time: e.target.value })}
-                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500" />
+                          className="w-full bg-slate-900/80 border border-white/[0.10] text-slate-100 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/15 focus:border-cyan-500/60 transition-all" />
                       </div>
                     </div>
                     <label className="flex items-center gap-2 cursor-pointer">
                       <input type="checkbox" checked={shiftForm.auto_assign} onChange={e => setShiftForm({ ...shiftForm, auto_assign: e.target.checked })}
-                        className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
-                      <span className="text-sm font-medium text-slate-700">Tự động phân công (auto-assign)</span>
+                        className="rounded border-white/[0.15] bg-slate-800 text-cyan-500 focus:ring-cyan-500/20 focus:ring-offset-0" />
+                      <span className="text-sm text-slate-400">Tự động phân công (auto-assign)</span>
                     </label>
                     <div className="flex gap-3 justify-end">
                       <Button type="button" variant="ghost" onClick={() => setShowShiftForm(false)}>Hủy</Button>
@@ -229,16 +240,16 @@ const JobDetailPage: React.FC = () => {
 
           <div className="space-y-3">
             {shifts.length === 0 ? (
-              <Card glass><p className="text-slate-400 text-center py-6">Chưa có ca làm nào cho việc làm này.</p></Card>
+              <Card className="p-6"><p className="text-slate-500 text-center">Chưa có ca làm nào cho việc làm này.</p></Card>
             ) : (
               shifts.map((shift, i) => (
                 <motion.div key={shift.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}>
-                  <Card glass className="!p-4">
+                  <Card className="p-4">
                     <div className="flex items-center justify-between gap-4">
                       <div>
                         <div className="flex items-center gap-2 flex-wrap">
-                          <p className="font-bold text-slate-900">{shift.title || `Ca #${i + 1}`}</p>
-                          <span className={`px-2 py-0.5 rounded-full text-xs font-black ${STATUS_STYLES[shift.status]}`}>{STATUS_LABELS[shift.status]}</span>
+                          <p className="font-semibold text-slate-100 text-sm">{shift.title || `Ca #${i + 1}`}</p>
+                          <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_STYLES[shift.status]}`}>{STATUS_LABELS[shift.status]}</span>
                         </div>
                         <p className="text-slate-500 text-sm mt-0.5">
                           {formatDateTime(shift.start_time)} → {formatDateTime(shift.end_time)} · {shift.current_workers}/{shift.max_workers} người

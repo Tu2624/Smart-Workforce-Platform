@@ -2,12 +2,17 @@ import React, { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuthStore } from '../../store/useAuthStore'
-import { RegisterIllustration } from '../../components/ui/Illustrations'
-import { containerVariants, itemVariants } from '../../utils/animations'
 import AuthLayout from '../../components/layout/AuthLayout'
 import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
-import Card from '../../components/ui/Card'
+
+const glassInput = 'w-full bg-slate-900/80 border border-white/[0.10] text-slate-100 placeholder:text-slate-600 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/15 focus:border-cyan-500/60 transition-all resize-none'
+
+const features = [
+  { icon: '⚡', text: 'Quản lý ca làm tự động' },
+  { icon: '💰', text: 'Tính lương chính xác, minh bạch' },
+  { icon: '📊', text: 'Báo cáo hiệu suất theo thời gian thực' },
+]
 
 const RegisterPage = () => {
   const [formData, setFormData] = useState({
@@ -15,7 +20,7 @@ const RegisterPage = () => {
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  
+
   const navigate = useNavigate()
   const registerEmployer = useAuthStore((state) => state.registerEmployer)
 
@@ -33,7 +38,6 @@ const RegisterPage = () => {
     } catch (err: any) {
       const data = err.response?.data
       if (data?.details && Array.isArray(data.details)) {
-        // Zod validation array
         setError(data.details.map((d: any) => d.message).join(' | '))
       } else {
         setError(data?.message || 'Đăng ký thất bại. Vui lòng kiểm tra lại thông tin.')
@@ -45,130 +49,144 @@ const RegisterPage = () => {
 
   return (
     <AuthLayout className="flex-col lg:flex-row">
-      {/* Left Side: Branding & Info (Hidden on mobile) */}
-      <div className="hidden lg:flex w-full lg:w-1/2 flex-col justify-between p-12 xl:p-20 relative bg-slate-900/50 border-r border-slate-800/50 backdrop-blur-sm z-10">
-        <motion.div 
-          initial={{ x: -20, opacity: 0 }}
+      {/* Left panel: branding */}
+      <div className="hidden lg:flex w-1/2 flex-col justify-between p-12 xl:p-16 bg-gradient-to-br from-cyan-600/[0.18] via-blue-600/[0.12] to-purple-600/[0.08] border-r border-white/[0.08] z-10">
+        <motion.div
+          initial={{ x: -16, opacity: 0 }}
           animate={{ x: 0, opacity: 1 }}
-          transition={{ duration: 0.8 }}
-          className="flex items-center space-x-4 text-white"
+          transition={{ duration: 0.5 }}
+          className="flex items-center gap-3"
         >
-          <div className="w-12 h-12 rounded-2xl bg-white text-indigo-600 flex items-center justify-center font-black text-2xl shadow-xl shadow-white/5">S</div>
-          <span className="text-2xl font-black tracking-tight uppercase">Smart Workforce</span>
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center font-black text-white text-lg shadow-glow-cyan">S</div>
+          <span className="text-lg font-bold text-white tracking-tight">Smart Workforce</span>
         </motion.div>
 
-        <div className="space-y-12 my-auto">
-          <div className="space-y-6">
-            <motion.h2 
-              initial={{ y: 20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.2, duration: 0.8 }}
-              className="text-6xl xl:text-7xl font-black text-white leading-[1.1] tracking-tight"
-            >
-              Nâng tầm <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-blue-400 to-indigo-400 animate-gradient">Nhân sự.</span>
-            </motion.h2>
-            <motion.p 
-              initial={{ y: 20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.4, duration: 0.8 }}
-              className="text-xl text-slate-400 max-w-lg leading-relaxed font-medium"
-            >
-              Hệ thống quản trị nhân sự thông minh cho doanh nghiệp hiện đại. Tự động hóa ca làm, tính lương và tuyển dụng sinh viên.
-            </motion.p>
-          </div>
-          
-          <motion.div 
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ delay: 0.6, duration: 1 }}
-            className="w-full max-w-md p-8 bg-indigo-500/5 rounded-[40px] border border-white/5 shadow-2xl"
+        <div className="space-y-8 my-auto">
+          <motion.div
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.15, duration: 0.5 }}
+            className="space-y-4"
           >
-            <RegisterIllustration />
+            <h2 className="text-5xl xl:text-6xl font-display font-bold text-white leading-tight tracking-tight">
+              Nâng tầm<br />
+              <span className="text-cyan-400">Nhân sự.</span>
+            </h2>
+            <p className="text-slate-400 text-lg leading-relaxed max-w-md">
+              Hệ thống quản trị nhân sự thông minh cho doanh nghiệp hiện đại. Tự động hóa ca làm, tính lương và tuyển dụng sinh viên.
+            </p>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.3, duration: 0.6 }}
+            className="space-y-3"
+          >
+            {features.map((item, i) => (
+              <motion.div
+                key={item.text}
+                initial={{ opacity: 0, x: -12 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.4 + i * 0.1 }}
+                className="flex items-center gap-3 text-slate-300 text-sm"
+              >
+                <span className="w-7 h-7 rounded-lg bg-white/[0.08] border border-white/[0.10] flex items-center justify-center text-sm shrink-0">{item.icon}</span>
+                {item.text}
+              </motion.div>
+            ))}
           </motion.div>
         </div>
 
-        <motion.div 
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 1 }}
-          className="text-slate-500 text-sm font-medium tracking-wide"
-        >
-          © 2026 SMART WORKFORCE PLATFORM.
-        </motion.div>
+        <p className="text-slate-600 text-xs">© 2026 Smart Workforce Platform</p>
       </div>
 
-      {/* Right Side: Registration Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-6 md:p-12 overflow-y-auto bg-slate-900/40 z-10">
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
+      {/* Right panel: form */}
+      <div className="w-full lg:w-1/2 flex items-start justify-center p-5 md:p-10 overflow-y-auto z-10">
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="w-full max-w-2xl my-auto py-8"
+          transition={{ duration: 0.35, ease: [0.25, 0, 0, 1] }}
+          className="w-full max-w-xl my-auto py-6"
         >
-          <Card className="shadow-2xl">
-            <motion.div variants={containerVariants} initial="hidden" animate="visible">
-              <motion.div variants={itemVariants} className="mb-10">
-                <h2 className="text-3xl md:text-4xl font-black text-slate-900 mb-2">Đăng ký ngay</h2>
-                <p className="text-base md:text-lg text-slate-500 font-medium">Gia nhập cộng đồng hơn 500+ doanh nghiệp thành công</p>
-              </motion.div>
+          <div className="mb-7">
+            <h2 className="text-2xl font-display font-bold text-white">Tạo tài khoản doanh nghiệp</h2>
+            <p className="text-slate-500 text-sm mt-1">Tham gia cùng 500+ doanh nghiệp đang sử dụng nền tảng</p>
+          </div>
 
-              <form onSubmit={handleSubmit} className="space-y-8">
-                <AnimatePresence mode="wait">
-                  {error && (
-                    <motion.div 
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                      className="bg-red-50 text-red-600 p-4 rounded-xl text-sm font-bold border border-red-100 flex items-center shadow-sm"
-                    >
-                      <svg className="w-5 h-5 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" /></svg>
-                      {error}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+          <div className="bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] rounded-2xl p-6 shadow-glass">
+            <AnimatePresence mode="wait">
+              {error && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0, marginBottom: 0 }}
+                  animate={{ opacity: 1, height: 'auto', marginBottom: 20 }}
+                  exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+                  className="overflow-hidden"
+                >
+                  <div className="flex items-start gap-3 bg-red-500/10 border border-red-500/30 text-red-400 px-4 py-3 rounded-xl text-sm">
+                    <svg className="w-4 h-4 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                    </svg>
+                    {error}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
-                <div className="space-y-8">
-                  <motion.div variants={itemVariants} className="space-y-5">
-                    <h3 className="text-xs font-black text-indigo-600 uppercase tracking-[0.2em] border-b border-indigo-50 pb-3">Thông tin tài khoản</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                      <Input id="email" label="Email Công ty" type="email" placeholder="hr@domain.com" required value={formData.email} onChange={handleChange} />
-                      <Input id="password" label="Mật khẩu" type="password" placeholder="••••••••" required value={formData.password} onChange={handleChange} />
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                      <Input id="full_name" label="Người đại diện" type="text" placeholder="Nguyễn Văn A" required value={formData.full_name} onChange={handleChange} />
-                      <Input id="phone" label="Số điện thoại" type="text" placeholder="0901234567" value={formData.phone} onChange={handleChange} />
-                    </div>
-                  </motion.div>
-
-                  <motion.div variants={itemVariants} className="space-y-5">
-                    <h3 className="text-xs font-black text-indigo-600 uppercase tracking-[0.2em] border-b border-indigo-50 pb-3">Thông tin tổ chức</h3>
-                    <Input id="company_name" label="Tên doanh nghiệp" type="text" placeholder="TẬP ĐOÀN... / CÔNG TY TNHH..." required value={formData.company_name} onChange={handleChange} />
-                    <Input id="address" label="Địa chỉ trụ sở" type="text" placeholder="Số 123, Quận..." value={formData.address} onChange={handleChange} />
-                    <div className="space-y-2">
-                      <label className="text-sm font-bold text-slate-700 ml-1">Mô tả định hướng</label>
-                      <textarea id="description" rows={3} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 transition-all outline-none resize-none font-medium" placeholder="Chia sẻ ngắn gọn về văn hóa doanh nghiệp của bạn..." value={formData.description} onChange={handleChange}></textarea>
-                    </div>
-                  </motion.div>
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <div>
+                <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest mb-3 pb-2 border-b border-white/[0.08]">Thông tin tài khoản</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <Input id="email" label="Email công ty" type="email" placeholder="hr@domain.com" required value={formData.email} onChange={handleChange} />
+                  <Input id="password" label="Mật khẩu" type="password" placeholder="••••••••" required value={formData.password} onChange={handleChange} />
+                  <Input id="full_name" label="Người đại diện" type="text" placeholder="Nguyễn Văn A" required value={formData.full_name} onChange={handleChange} />
+                  <Input id="phone" label="Số điện thoại" type="text" placeholder="0901234567" value={formData.phone} onChange={handleChange} />
                 </div>
+              </div>
 
-                <motion.div variants={itemVariants} className="flex items-start space-x-3 p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                  <input type="checkbox" required className="mt-1 flex-shrink-0 h-5 w-5 rounded-lg border-slate-300 text-indigo-600 focus:ring-4 focus:ring-indigo-100" />
-                  <label className="text-xs text-slate-500 leading-relaxed font-medium">
-                    Tôi xác nhận đã đọc và đồng ý với <a href="#" className="font-bold text-indigo-600 hover:underline">Điều khoản sử dụng</a> và <a href="#" className="font-bold text-indigo-600 hover:underline">Chính sách bảo mật</a> của nền tảng.
-                  </label>
-                </motion.div>
+              <div>
+                <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest mb-3 pb-2 border-b border-white/[0.08]">Thông tin tổ chức</p>
+                <div className="space-y-4">
+                  <Input id="company_name" label="Tên doanh nghiệp" type="text" placeholder="Công ty TNHH..." required value={formData.company_name} onChange={handleChange} />
+                  <Input id="address" label="Địa chỉ trụ sở" type="text" placeholder="Số 123, Quận..." value={formData.address} onChange={handleChange} />
+                  <div className="space-y-1.5">
+                    <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-widest">Mô tả</label>
+                    <textarea
+                      id="description"
+                      rows={3}
+                      className={glassInput}
+                      placeholder="Chia sẻ ngắn gọn về văn hóa doanh nghiệp..."
+                      value={formData.description}
+                      onChange={handleChange}
+                    />
+                  </div>
+                </div>
+              </div>
 
-                <motion.div variants={itemVariants} className="pt-4">
-                  <Button type="submit" className="w-full" size="lg" isLoading={loading}>Xác nhận & Hoàn tất</Button>
-                </motion.div>
+              <div className="flex items-start gap-3 p-3.5 bg-white/[0.04] rounded-xl border border-white/[0.08]">
+                <input
+                  type="checkbox"
+                  required
+                  className="mt-0.5 h-4 w-4 rounded border-white/[0.15] bg-slate-900 text-cyan-500 focus:ring-cyan-500/30 focus:ring-offset-0 shrink-0"
+                />
+                <span className="text-xs text-slate-400 leading-relaxed">
+                  Tôi đồng ý với{' '}
+                  <a href="#" className="font-semibold text-cyan-400 hover:text-cyan-300 transition-colors">Điều khoản sử dụng</a>
+                  {' '}và{' '}
+                  <a href="#" className="font-semibold text-cyan-400 hover:text-cyan-300 transition-colors">Chính sách bảo mật</a>.
+                </span>
+              </div>
 
-                <motion.div variants={itemVariants} className="text-center text-sm text-slate-500 font-medium pt-2">
-                  Đã là thành viên? <Link to="/login" className="font-extrabold text-indigo-600 hover:text-indigo-500 hover:underline">Đăng nhập ngay</Link>
-                </motion.div>
-              </form>
-            </motion.div>
-          </Card>
+              <Button type="submit" className="w-full" size="lg" isLoading={loading}>
+                Xác nhận &amp; Hoàn tất
+              </Button>
+
+              <p className="text-center text-sm text-slate-500 pt-3 border-t border-white/[0.08]">
+                Đã là thành viên?{' '}
+                <Link to="/login" className="font-semibold text-cyan-400 hover:text-cyan-300 transition-colors">Đăng nhập ngay</Link>
+              </p>
+            </form>
+          </div>
         </motion.div>
       </div>
     </AuthLayout>

@@ -38,11 +38,11 @@ const EmployerPayrollDetail: React.FC = () => {
         </motion.div>
 
         <motion.div variants={itemVariants}>
-          <Card glass>
+          <Card className="p-6">
             <div className="flex items-start justify-between flex-wrap gap-4">
               <div>
-                <h1 className="text-2xl font-black text-slate-900">Bảng lương — {payroll.student_name}</h1>
-                <p className="text-slate-500 text-sm mt-1">
+                <h1 className="text-xl font-display font-bold text-white">Bảng lương — {payroll.student_name}</h1>
+                <p className="text-slate-400 text-sm mt-1">
                   Tháng {payroll.period_start?.slice(5, 7)}/{payroll.period_start?.slice(0, 4)}
                 </p>
               </div>
@@ -61,53 +61,53 @@ const EmployerPayrollDetail: React.FC = () => {
                 )}
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-4 mt-4">
+            <div className="grid grid-cols-3 gap-4 mt-5 pt-5 border-t border-white/[0.08]">
               <div>
-                <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Tổng giờ</p>
-                <p className="text-2xl font-black text-slate-900 mt-1">{Number(payroll.total_hours).toFixed(1)}h</p>
+                <p className="text-[10px] text-slate-500 font-semibold uppercase tracking-widest mb-1">Tổng giờ</p>
+                <p className="text-2xl font-display font-bold text-slate-100">{Number(payroll.total_hours).toFixed(1)}h</p>
               </div>
               <div>
-                <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Tổng lương</p>
-                <p className="text-2xl font-black text-emerald-600 mt-1">{Number(payroll.total_amount).toLocaleString('vi-VN')}đ</p>
+                <p className="text-[10px] text-slate-500 font-semibold uppercase tracking-widest mb-1">Tổng lương</p>
+                <p className="text-2xl font-display font-bold text-cyan-300">{Number(payroll.total_amount).toLocaleString('vi-VN')}đ</p>
               </div>
               <div>
-                <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Trạng thái</p>
-                <p className="text-sm font-black text-slate-700 mt-2">{payroll.status === 'paid' ? '✓ Đã thanh toán' : payroll.status === 'confirmed' ? 'Đã xác nhận' : 'Nháp'}</p>
+                <p className="text-[10px] text-slate-500 font-semibold uppercase tracking-widest mb-1">Trạng thái</p>
+                <p className="text-sm font-semibold text-slate-300 mt-1">{payroll.status === 'paid' ? 'Đã thanh toán' : payroll.status === 'confirmed' ? 'Đã xác nhận' : 'Nháp'}</p>
               </div>
             </div>
           </Card>
         </motion.div>
 
         <motion.div variants={itemVariants}>
-          <Card glass>
-            <h2 className="text-lg font-black text-slate-900 mb-4">Chi tiết từng ca</h2>
+          <Card className="p-5">
+            <h2 className="text-sm font-display font-semibold text-slate-200 mb-4">Chi tiết từng ca</h2>
             {(!payroll.items || payroll.items.length === 0) ? (
-              <p className="text-slate-400 text-sm text-center py-6">Chưa có ca nào.</p>
+              <p className="text-slate-500 text-sm text-center py-6">Chưa có ca nào.</p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="text-left text-slate-500 text-xs font-bold uppercase tracking-wider border-b border-slate-100">
-                      <th className="pb-2 pr-4">Ca làm</th>
-                      <th className="pb-2 pr-4">Kế hoạch</th>
-                      <th className="pb-2 pr-4">Thực tế</th>
-                      <th className="pb-2 pr-4">Lương/giờ</th>
-                      <th className="pb-2 pr-4">Khấu trừ</th>
-                      <th className="pb-2 text-right">Thành tiền</th>
+                    <tr className="border-b border-white/[0.08]">
+                      <th className="pb-3 pr-4 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-widest">Ca làm</th>
+                      <th className="pb-3 pr-4 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-widest">Kế hoạch</th>
+                      <th className="pb-3 pr-4 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-widest">Thực tế</th>
+                      <th className="pb-3 pr-4 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-widest">Lương/giờ</th>
+                      <th className="pb-3 pr-4 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-widest">Khấu trừ</th>
+                      <th className="pb-3 text-right text-[11px] font-semibold text-slate-500 uppercase tracking-widest">Thành tiền</th>
                     </tr>
                   </thead>
                   <tbody>
                     {payroll.items.map((item: any) => (
-                      <tr key={item.id} className="border-b border-slate-50 last:border-0">
-                        <td className="py-2 pr-4">
-                          <p className="font-semibold text-slate-900">{item.shift_title || 'Ca làm việc'}</p>
-                          <p className="text-xs text-slate-400">{item.start_time ? new Date(item.start_time).toLocaleDateString('vi-VN') : ''}</p>
+                      <tr key={item.id} className="border-b border-white/[0.04] last:border-0 hover:bg-white/[0.04] transition-colors">
+                        <td className="py-2.5 pr-4">
+                          <p className="font-semibold text-slate-100">{item.shift_title || 'Ca làm việc'}</p>
+                          <p className="text-xs text-slate-500">{item.start_time ? new Date(item.start_time).toLocaleDateString('vi-VN') : ''}</p>
                         </td>
-                        <td className="py-2 pr-4 text-slate-600">{Number(item.scheduled_hours).toFixed(1)}h</td>
-                        <td className="py-2 pr-4 text-slate-600">{Number(item.hours_worked).toFixed(1)}h</td>
-                        <td className="py-2 pr-4 text-slate-600">{Number(item.hourly_rate).toLocaleString('vi-VN')}đ</td>
-                        <td className="py-2 pr-4 text-red-500">{item.deduction_minutes > 0 ? `-${Number(item.deduction_amount).toLocaleString('vi-VN')}đ` : '—'}</td>
-                        <td className="py-2 text-right font-black text-slate-900">{Number(item.subtotal).toLocaleString('vi-VN')}đ</td>
+                        <td className="py-2.5 pr-4 text-slate-400">{Number(item.scheduled_hours).toFixed(1)}h</td>
+                        <td className="py-2.5 pr-4 text-slate-400">{Number(item.hours_worked).toFixed(1)}h</td>
+                        <td className="py-2.5 pr-4 text-slate-400">{Number(item.hourly_rate).toLocaleString('vi-VN')}đ</td>
+                        <td className="py-2.5 pr-4 text-red-400">{item.deduction_minutes > 0 ? `-${Number(item.deduction_amount).toLocaleString('vi-VN')}đ` : '—'}</td>
+                        <td className="py-2.5 text-right font-semibold text-slate-100">{Number(item.subtotal).toLocaleString('vi-VN')}đ</td>
                       </tr>
                     ))}
                   </tbody>

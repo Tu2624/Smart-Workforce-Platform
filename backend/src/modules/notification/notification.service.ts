@@ -20,10 +20,10 @@ export class NotificationService {
       `SELECT * FROM notifications ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
       [...params, limit, offset]
     )
-    const [[countRow]] = await pool.query(
+    const [countRows] = await pool.query(
       `SELECT COUNT(*) as total FROM notifications ${where}`, params
     ) as any
-    const [[unreadRow]] = await pool.query(
+    const [unreadRows] = await pool.query(
       'SELECT COUNT(*) as count FROM notifications WHERE user_id = ? AND is_read = 0', [userId]
     ) as any
 
@@ -32,8 +32,8 @@ export class NotificationService {
         ...n,
         metadata: n.metadata ? JSON.parse(n.metadata) : null,
       })),
-      unread_count: Number(unreadRow.count),
-      pagination: { page, limit, total: Number(countRow.total) },
+      unread_count: Number(unreadRows[0].count),
+      pagination: { page, limit, total: Number(countRows[0].total) },
     }
   }
 

@@ -80,8 +80,8 @@ const BrowseShiftsPage: React.FC = () => {
     <DashboardLayout>
       <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-6">
         <motion.div variants={itemVariants}>
-          <h1 className="text-3xl font-black text-white tracking-tight">Tìm ca làm việc</h1>
-          <p className="text-slate-400 mt-1">{filtered.length} ca đang mở</p>
+          <h1 className="text-xl font-display font-bold text-white tracking-tight">Tìm ca làm việc</h1>
+          <p className="text-slate-500 text-sm mt-0.5">{filtered.length} ca đang mở</p>
         </motion.div>
 
         {message && (
@@ -104,7 +104,7 @@ const BrowseShiftsPage: React.FC = () => {
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Tìm theo tên việc làm..."
-            className="w-full md:w-80 bg-slate-800 border border-slate-700 text-white placeholder-slate-500 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            className="w-full md:w-80 bg-slate-900/80 border border-white/[0.10] text-slate-100 placeholder:text-slate-600 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/15 focus:border-cyan-500/60 transition-all"
           />
         </motion.div>
 
@@ -112,31 +112,29 @@ const BrowseShiftsPage: React.FC = () => {
           {loading ? (
             <p className="text-slate-400 text-center py-12">Đang tải...</p>
           ) : filtered.length === 0 ? (
-            <Card glass>
-              <p className="text-slate-400 text-center py-8">
+            <Card className="p-8">
+              <p className="text-slate-500 text-center">
                 {search ? 'Không tìm thấy ca phù hợp.' : 'Hiện chưa có ca làm nào đang mở.'}
               </p>
             </Card>
           ) : (
             filtered.map((shift, i) => {
               const shiftStatus = shift.status as string
-              const approvedCount = shift.current_workers  // now correctly = approved count
+              const approvedCount = shift.current_workers
               const slotsLeft = Math.max(0, shift.max_workers - approvedCount)
               const regStatus: string | null = shift.my_registration_status ?? null
               const isPending = regStatus === 'pending'
               const isApproved = regStatus === 'approved'
               const isRejected = regStatus === 'rejected'
-              const hasRegistration = isPending || isApproved || isRejected
               const isActing = actionLoading === shift.id
-              const isOngoing = shiftStatus === 'ongoing'
               const isCompleted = shiftStatus === 'completed' || shiftStatus === 'cancelled'
 
               const SHIFT_STATUS_BADGE: Record<string, string> = {
-                open: 'bg-emerald-100 text-emerald-700',
-                full: 'bg-orange-100 text-orange-700',
-                ongoing: 'bg-indigo-100 text-indigo-700',
-                completed: 'bg-slate-100 text-slate-500',
-                cancelled: 'bg-red-100 text-red-500',
+                open: 'bg-emerald-500/10 text-emerald-400 ring-1 ring-inset ring-emerald-500/20',
+                full: 'bg-orange-500/10 text-orange-400 ring-1 ring-inset ring-orange-500/20',
+                ongoing: 'bg-cyan-500/10 text-cyan-400 ring-1 ring-inset ring-cyan-500/20',
+                completed: 'bg-slate-500/10 text-slate-400 ring-1 ring-inset ring-slate-500/20',
+                cancelled: 'bg-red-500/10 text-red-400 ring-1 ring-inset ring-red-500/20',
               }
               const SHIFT_STATUS_LABEL: Record<string, string> = {
                 open: 'Đang mở', full: 'Đã đủ chỗ', ongoing: 'Đang diễn ra',
@@ -145,39 +143,35 @@ const BrowseShiftsPage: React.FC = () => {
 
               return (
                 <motion.div key={shift.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}>
-                  <Card glass className="!p-5">
+                  <Card className="p-5">
                     <div className="flex items-center justify-between gap-4">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="font-black text-slate-900">{shift.job_title || 'Việc làm'}</h3>
+                          <h3 className="font-semibold text-slate-100">{shift.job_title || 'Việc làm'}</h3>
                           {shift.title && <span className="text-slate-500 text-sm">— {shift.title}</span>}
-                          <span className={`px-2.5 py-0.5 rounded-full text-xs font-black ${SHIFT_STATUS_BADGE[shiftStatus] || 'bg-slate-100 text-slate-500'}`}>
+                          <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${SHIFT_STATUS_BADGE[shiftStatus] || 'bg-slate-500/10 text-slate-400'}`}>
                             {SHIFT_STATUS_LABEL[shiftStatus] || shiftStatus}
                           </span>
-                          {isPending && <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-amber-100 text-amber-700">⏳ Chờ duyệt</span>}
-                          {isApproved && <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-indigo-100 text-indigo-700">✓ Đã duyệt</span>}
-                          {isRejected && <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-red-100 text-red-600">✗ Bị từ chối</span>}
+                          {isPending && <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold bg-amber-500/10 text-amber-400 ring-1 ring-inset ring-amber-500/20">Chờ duyệt</span>}
+                          {isApproved && <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold bg-cyan-500/10 text-cyan-400 ring-1 ring-inset ring-cyan-500/20">Đã duyệt</span>}
+                          {isRejected && <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold bg-red-500/10 text-red-400 ring-1 ring-inset ring-red-500/20">Bị từ chối</span>}
                         </div>
                         <p className="text-slate-500 text-sm mt-1">
                           {formatDateTime(shift.start_time)} → {formatDateTime(shift.end_time)}
                         </p>
                         <p className="text-slate-500 text-sm">
                           {shift.hourly_rate
-                            ? <span className="text-emerald-600 font-semibold">{parseFloat(shift.hourly_rate).toLocaleString('vi-VN')}đ/giờ · </span>
+                            ? <span className="text-cyan-400 font-semibold">{parseFloat(shift.hourly_rate).toLocaleString('vi-VN')}đ/giờ · </span>
                             : null}
-                          {isApproved || isPending
-                            ? <span className="text-slate-400">Chỗ trống: {slotsLeft}/{shift.max_workers}</span>
-                            : <span>Chỗ trống: {slotsLeft}/{shift.max_workers}</span>
-                          }
+                          <span>Chỗ trống: {slotsLeft}/{shift.max_workers}</span>
                         </p>
                       </div>
                       <div className="shrink-0">
                         {isApproved ? (
-                          <span className="text-xs font-bold text-indigo-600 px-3 py-1.5 bg-indigo-50 rounded-lg">Đã được xếp lịch</span>
+                          <span className="text-xs font-semibold text-cyan-400 px-3 py-1.5 bg-cyan-500/10 rounded-lg ring-1 ring-inset ring-cyan-500/20">Đã xếp lịch</span>
                         ) : isPending ? (
                           <Button variant="ghost" size="sm" disabled={isActing}
-                            onClick={() => handleCancel(shift.id)}
-                            className="border border-slate-300 text-slate-500 hover:text-red-500 hover:border-red-400">
+                            onClick={() => handleCancel(shift.id)}>
                             {isActing ? '...' : 'Hủy đăng ký'}
                           </Button>
                         ) : isRejected ? (
@@ -186,7 +180,7 @@ const BrowseShiftsPage: React.FC = () => {
                             {isActing ? '...' : 'Đăng ký lại'}
                           </Button>
                         ) : isCompleted ? (
-                          <span className="text-xs text-slate-400">Đã kết thúc</span>
+                          <span className="text-xs text-slate-500">Đã kết thúc</span>
                         ) : (
                           <Button variant="primary" size="sm" disabled={isActing}
                             onClick={() => handleRegister(shift.id)}>

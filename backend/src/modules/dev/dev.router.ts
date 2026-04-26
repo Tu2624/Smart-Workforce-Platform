@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express'
 import { getNow, getOffsetMs, setOffsetMs, resetOffset } from '../../utils/serverTime'
+import { runWeeklyScheduler } from '../../jobs/weeklyScheduler'
 
 const router = Router()
 
@@ -44,6 +45,16 @@ router.post('/time/offset', (req: Request, res: Response) => {
 router.delete('/time/offset', (req: Request, res: Response) => {
   resetOffset()
   res.json({ message: 'Offset đã reset về 0', server_time: getNow().toISOString(), offset_ms: 0 })
+})
+ 
+// POST /api/dev/trigger-schedule — kích hoạt xếp ca thủ công
+router.post('/trigger-schedule', async (req: Request, res: Response) => {
+  try {
+    await runWeeklyScheduler()
+    res.json({ message: 'Đã kích hoạt xếp ca tự động thành công.' })
+  } catch (error: any) {
+    res.status(500).json({ error: 'TRIGGER_FAILED', message: error.message })
+  }
 })
 
 export { router as devRouter }

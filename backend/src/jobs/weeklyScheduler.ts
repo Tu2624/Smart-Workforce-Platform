@@ -2,14 +2,19 @@ import cron from 'node-cron'
 import pool from '../config/database'
 import { createNotification } from '../utils/notificationHelper'
 import { notifyUser } from '../config/socket'
+import { getNow } from '../utils/serverTime'
 
-async function runWeeklyScheduler() {
+export async function runWeeklyScheduler() {
   console.log('[Scheduler] Running weekly shift assignment...')
 
   // Get all pending registrations for shifts starting this week
-  const now = new Date()
+  const now = getNow()
+  const weekStart = new Date(now)
+  weekStart.setDate(weekStart.getDate() - 1) // Include 1 day ago to be safe
   const weekEnd = new Date(now)
   weekEnd.setDate(weekEnd.getDate() + 7)
+
+  console.log(`[Scheduler] Scanning shifts between ${weekStart.toISOString()} and ${weekEnd.toISOString()}`)
 
   const [pendingRows] = await pool.query(
     `SELECT sr.*, sp.reputation_score, s.max_workers, s.current_workers, s.start_time, s.end_time, s.employer_id
@@ -18,8 +23,10 @@ async function runWeeklyScheduler() {
      JOIN student_profiles sp ON sp.user_id = sr.student_id
      WHERE sr.status = 'pending' AND s.start_time BETWEEN ? AND ? AND s.status != 'cancelled'
      ORDER BY sr.shift_id, sp.reputation_score DESC, sr.registered_at ASC`,
-    [now.toISOString(), weekEnd.toISOString()]
+    [weekStart.toISOString(), weekEnd.toISOString()]
   )
+
+  console.log(`[Scheduler] Found ${(pendingRows as any[]).length} pending registrations to process.`)
 
   // Group by shift
   const byShift = new Map<string, any[]>()

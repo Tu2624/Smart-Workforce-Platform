@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { getServerTime, setTimeOffset, resetTimeOffset } from '../api/devTime'
+import { getServerTime, setTimeOffset, resetTimeOffset, triggerSchedule } from '../api/devTime'
 
 interface ServerTimeInfo {
   server_time: string
@@ -16,6 +16,7 @@ export const DevTimeOffset: React.FC = () => {
   const [info, setInfo]     = useState<ServerTimeInfo | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError]   = useState('')
+  const [status, setStatus] = useState('')
 
   const refresh = useCallback(async () => {
     try {
@@ -48,6 +49,20 @@ export const DevTimeOffset: React.FC = () => {
     setLoading(true)
     try { await resetTimeOffset(); await refresh() }
     finally { setLoading(false) }
+  }
+
+  const handleTriggerSchedule = async () => {
+    setLoading(true)
+    try {
+      const res = await triggerSchedule()
+      setStatus(res.message || 'Kích hoạt thành công')
+      setTimeout(() => setStatus(''), 3000)
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Kích hoạt thất bại')
+      setTimeout(() => setError(''), 3000)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const offsetColor = !info ? 'text-slate-400'
@@ -147,6 +162,14 @@ export const DevTimeOffset: React.FC = () => {
                   Reset
                 </button>
               </div>
+              <button
+                disabled={loading}
+                onClick={handleTriggerSchedule}
+                className="w-full py-2 text-xs font-bold rounded-xl bg-cyan-500 text-slate-950 hover:bg-cyan-400 transition-all shadow-glow-sm disabled:opacity-40"
+              >
+                Kích hoạt Xếp ca tự động
+              </button>
+              {status && <p className="text-cyan-400 text-[10px] text-center font-bold">{status}</p>}
             </div>
           </motion.div>
         )}

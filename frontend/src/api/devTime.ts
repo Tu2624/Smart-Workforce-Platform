@@ -8,3 +8,6 @@ export const setTimeOffset = (offsetHours: number) =>
 
 export const resetTimeOffset = () =>
   apiClient.delete('/dev/time/offset').then(r => r.data)
+
+export const triggerSchedule = () =>
+  apiClient.post('/dev/trigger-schedule').then(r => r.data)

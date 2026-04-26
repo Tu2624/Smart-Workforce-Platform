@@ -1,0 +1,94 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-04-24T16:55:00Z",
+  "title": "Design System: Smart Workforce Platform",
+  "extensions": {
+    "colorMeta": {
+      "primary": {
+        "role": "primary",
+        "displayName": "Purposeful Indigo",
+        "canonical": "oklch(0.55 0.18 270)",
+        "tonalRamp": [
+          "oklch(0.2 0.05 270)",
+          "oklch(0.3 0.1 270)",
+          "oklch(0.4 0.15 270)",
+          "oklch(0.55 0.18 270)",
+          "oklch(0.65 0.15 270)",
+          "oklch(0.75 0.1 270)",
+          "oklch(0.85 0.05 270)",
+          "oklch(0.95 0.02 270)"
+        ]
+      },
+      "neutral-bg": {
+        "role": "neutral",
+        "displayName": "Deep Void",
+        "canonical": "oklch(0.13 0.015 260)",
+        "tonalRamp": [
+          "oklch(0.05 0.01 260)",
+          "oklch(0.1 0.015 260)",
+          "oklch(0.13 0.015 260)",
+          "oklch(0.2 0.02 260)",
+          "oklch(0.4 0.02 260)",
+          "oklch(0.6 0.015 260)",
+          "oklch(0.8 0.01 260)",
+          "oklch(0.95 0.005 260)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Landing page and major role headers."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "General reading and data density."
+      }
+    },
+    "motion": [
+      {
+        "name": "standard-fade",
+        "value": "200ms ease-out",
+        "purpose": "Default for state changes and entrances."
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Primary action button.",
+      "html": "<button class=\"ds-btn-primary\">Đăng nhập</button>",
+      "css": ".ds-btn-primary { background: oklch(0.55 0.18 270); color: white; padding: 14px 24px; border-radius: 12px; font-weight: 600; font-size: 15px; border: none; cursor: pointer; transition: filter 0.2s; } .ds-btn-primary:hover { filter: brightness(1.1); }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input-text",
+      "description": "Standard form input field.",
+      "html": "<input class=\"ds-input\" placeholder=\"Email\">",
+      "css": ".ds-input { background: oklch(1 0 0 / 0.03); border: 1px solid oklch(1 0 0 / 0.1); border-radius: 12px; padding: 14px 16px; color: white; font-size: 15px; width: 100%; outline: none; transition: border-color 0.2s; } .ds-input:focus { border-color: oklch(0.55 0.18 270 / 0.5); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Purposeful Dashboard",
+    "overview": "Smart Workforce Platform is a professional tool for managing labor, money, and time. The aesthetic is 'Restrained Modern'—it prioritizes clarity and speed over decorative flair.",
+    "keyCharacteristics": [
+      "High-contrast typography",
+      "Minimal decoration",
+      "Dense data presentation",
+      "Tonal depth layering"
+    ],
+    "dos": [
+      "Do use OKLCH for color definitions",
+      "Do keep data density high",
+      "Do use gap for layout"
+    ],
+    "donts": [
+      "Don't use decorative glassmorphism",
+      "Don't use animated text gradients",
+      "Don't use orchestrated loading sequences"
+    ]
+  }
+}

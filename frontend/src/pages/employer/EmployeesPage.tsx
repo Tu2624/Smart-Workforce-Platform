@@ -78,8 +78,8 @@ const EmployeesPage: React.FC = () => {
 
         <motion.div variants={itemVariants} className="flex items-start justify-between gap-4 flex-wrap">
           <div>
-            <h1 className="text-3xl font-black text-white tracking-tight">Nhân viên</h1>
-            <p className="text-slate-400 mt-1">{employees.length} nhân viên đang hoạt động</p>
+            <h1 className="text-xl font-display font-bold text-white tracking-tight">Nhân viên</h1>
+            <p className="text-slate-500 text-sm mt-0.5">{employees.length} nhân viên đang hoạt động</p>
           </div>
           <Button variant="primary" onClick={() => setShowModal(true)}>+ Thêm nhân viên</Button>
         </motion.div>
@@ -88,31 +88,33 @@ const EmployeesPage: React.FC = () => {
         <AnimatePresence>
           {showModal && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
+              className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 backdrop-blur-sm px-4 pt-[8vh] overflow-y-auto">
               <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
-                className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
+                className="bg-slate-950/95 backdrop-blur-xl border border-white/[0.10] rounded-2xl shadow-glass p-6 w-full max-w-md mb-8">
 
                 {createdPassword ? (
-                  /* Sau khi tạo thành công — hiển thị mật khẩu tạm */
                   <div className="text-center space-y-4">
-                    <div className="w-14 h-14 bg-emerald-100 rounded-full flex items-center justify-center mx-auto">
-                      <svg className="w-7 h-7 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <div className="w-14 h-14 bg-emerald-500/10 border border-emerald-500/20 rounded-full flex items-center justify-center mx-auto">
+                      <svg className="w-7 h-7 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                       </svg>
                     </div>
-                    <h2 className="text-xl font-black text-slate-900">Tạo tài khoản thành công!</h2>
-                    <p className="text-slate-600 text-sm">Cấp mật khẩu tạm thời này cho nhân viên. Chỉ hiển thị một lần.</p>
-                    <div className="bg-slate-50 border-2 border-dashed border-slate-300 rounded-xl px-5 py-4">
-                      <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mb-1">Mật khẩu tạm thời</p>
-                      <p className="text-2xl font-mono font-black text-slate-900 tracking-widest select-all">{createdPassword}</p>
+                    <h2 className="text-lg font-semibold text-slate-100">Tạo tài khoản thành công!</h2>
+                    <p className="text-slate-400 text-sm">Cấp mật khẩu tạm thời này cho nhân viên. Chỉ hiển thị một lần.</p>
+                    <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl px-5 py-4">
+                      <p className="text-[10px] text-emerald-500/70 font-semibold uppercase tracking-widest mb-2">Mật khẩu tạm thời</p>
+                      <p className="text-2xl font-mono font-bold text-emerald-300 tracking-widest select-all">{createdPassword}</p>
                     </div>
                     <Button variant="primary" onClick={closeModal} className="w-full">Đóng</Button>
                   </div>
                 ) : (
-                  /* Form tạo nhân viên */
                   <>
-                    <h2 className="text-xl font-black text-slate-900 mb-5">Thêm nhân viên mới</h2>
-                    {formError && <p className="text-red-500 text-sm mb-4 bg-red-50 rounded-xl px-4 py-2">{formError}</p>}
+                    <h2 className="text-base font-display font-semibold text-slate-100 mb-5">Thêm nhân viên mới</h2>
+                    {formError && (
+                      <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/30 text-red-400 px-4 py-3 rounded-xl text-sm mb-4">
+                        {formError}
+                      </div>
+                    )}
                     <form onSubmit={handleCreate} className="space-y-3">
                       {[
                         { key: 'full_name',   label: 'Họ và tên *',     type: 'text' },
@@ -122,7 +124,7 @@ const EmployeesPage: React.FC = () => {
                         { key: 'university',  label: 'Trường đại học',   type: 'text' },
                       ].map(f => (
                         <div key={f.key}>
-                          <label className="block text-xs font-bold text-slate-600 mb-1">{f.label}</label>
+                          <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-widest mb-1.5">{f.label}</label>
                           <input
                             type={f.type}
                             value={(form as any)[f.key]}
@@ -130,11 +132,11 @@ const EmployeesPage: React.FC = () => {
                               setForm(prev => ({ ...prev, [f.key]: e.target.value }))
                               setFieldErrors(prev => ({ ...prev, [f.key]: '' }))
                             }}
-                            className={`w-full bg-slate-50 border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 ${
-                              fieldErrors[f.key] ? 'border-red-400' : 'border-slate-200'
+                            className={`w-full bg-slate-900/80 border rounded-xl px-4 py-2.5 text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none focus:ring-2 transition-all ${
+                              fieldErrors[f.key] ? 'border-red-500/50 focus:border-red-400 focus:ring-red-500/15' : 'border-white/[0.10] focus:border-cyan-500/60 focus:ring-cyan-500/15'
                             }`}
                           />
-                          {fieldErrors[f.key] && <p className="text-red-500 text-xs mt-1">{fieldErrors[f.key]}</p>}
+                          {fieldErrors[f.key] && <p className="text-red-400 text-xs mt-1">{fieldErrors[f.key]}</p>}
                         </div>
                       ))}
                       <div className="flex gap-3 justify-end pt-2">
@@ -155,42 +157,42 @@ const EmployeesPage: React.FC = () => {
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="bg-slate-800/50 border-b border-slate-700">
+                  <tr className="border-b border-white/[0.08]">
                     {['Nhân viên', 'Email', 'Mã SV', 'Trường', 'Điểm uy tín', 'Ngày tham gia'].map(h => (
-                      <th key={h} className="px-6 py-4 text-xs font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{h}</th>
+                      <th key={h} className="px-5 pb-3 pt-4 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-widest whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-700/50">
+                <tbody className="divide-y divide-white/[0.04]">
                   {loading ? (
                     <tr>
-                      <td colSpan={6} className="px-6 py-12 text-center text-slate-500">Đang tải...</td>
+                      <td colSpan={6} className="px-5 py-12 text-center text-slate-500">Đang tải...</td>
                     </tr>
                   ) : employees.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-6 py-16 text-center text-slate-500">
-                        <p className="font-bold text-slate-400 mb-1">Chưa có nhân viên nào</p>
+                      <td colSpan={6} className="px-5 py-16 text-center text-slate-500">
+                        <p className="font-semibold text-slate-400 mb-1">Chưa có nhân viên nào</p>
                         <p className="text-sm">Bấm "+ Thêm nhân viên" để tạo tài khoản đầu tiên.</p>
                       </td>
                     </tr>
                   ) : employees.map(emp => (
-                    <tr key={emp.id} className="hover:bg-slate-800/30 transition-colors">
-                      <td className="px-6 py-4">
-                        <p className="font-bold text-white">{emp.full_name}</p>
+                    <tr key={emp.id} className="hover:bg-white/[0.04] transition-colors">
+                      <td className="px-5 py-3.5">
+                        <p className="font-semibold text-slate-200">{emp.full_name}</p>
                         {emp.phone && <p className="text-xs text-slate-500 mt-0.5">{emp.phone}</p>}
                       </td>
-                      <td className="px-6 py-4 text-slate-400 text-sm">{emp.email}</td>
-                      <td className="px-6 py-4 text-slate-400 text-sm font-mono">{emp.student_id || '—'}</td>
-                      <td className="px-6 py-4 text-slate-400 text-sm">{emp.university || '—'}</td>
-                      <td className="px-6 py-4">
-                        <span className={`font-black text-lg ${reputationColor(emp.reputation_score)}`}>
+                      <td className="px-5 py-3.5 text-slate-400 text-sm">{emp.email}</td>
+                      <td className="px-5 py-3.5 text-slate-400 text-sm font-mono">{emp.student_id || '—'}</td>
+                      <td className="px-5 py-3.5 text-slate-400 text-sm">{emp.university || '—'}</td>
+                      <td className="px-5 py-3.5">
+                        <span className={`font-bold text-base ${reputationColor(emp.reputation_score)}`}>
                           {emp.reputation_score}
                         </span>
                         <span className={`ml-1.5 text-xs ${reputationColor(emp.reputation_score)}`}>
                           {reputationLabel(emp.reputation_score)}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-slate-500 text-sm">
+                      <td className="px-5 py-3.5 text-slate-500 text-sm">
                         {new Date(emp.created_at).toLocaleDateString('vi-VN')}
                       </td>
                     </tr>

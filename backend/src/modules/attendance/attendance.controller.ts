@@ -1,4 +1,5 @@
 import { Response } from 'express'
+import pool from '../../config/database'
 import { AuthRequest } from '../../middlewares/auth.middleware'
 import { attendanceService } from './attendance.service'
 
@@ -12,6 +13,7 @@ export class AttendanceController {
         NOT_REGISTERED:    [403, 'You do not have an approved registration for this shift'],
         ALREADY_CHECKED_IN:[409, 'You have already checked in for this shift'],
         SHIFT_NOT_FOUND:   [404, 'Shift not found'],
+        TOO_EARLY:         [400, 'Too early to check in (max 1h before start)'],
       }
       const [status, message] = map[err.message] ?? [500, err.message]
       res.status(status).json({ error: err.message, message })
@@ -65,6 +67,51 @@ export class AttendanceController {
         ALREADY_COMPLETED:           [409, 'Student has already checked out'],
         SHIFT_NOT_ENDED:             [400, 'Shift has not ended yet'],
         FORCE_CHECKOUT_LIMIT_EXCEEDED:[403, 'Force checkout limit (3/month) exceeded for this student'],
+      }
+      const [status, message] = map[err.message] ?? [500, err.message]
+      res.status(status).json({ error: err.message, message })
+    }
+  }
+
+  async manualCheckIn(req: AuthRequest, res: Response) {
+    try {
+      const { shift_id, student_id } = req.body
+      // Verify ownership
+      const [shiftRows] = await pool.query('SELECT employer_id FROM shifts WHERE id = ?', [shift_id])
+      const shift = (shiftRows as any[])[0]
+      if (!shift) throw new Error('SHIFT_NOT_FOUND')
+      if (shift.employer_id !== req.user!.id) throw new Error('FORBIDDEN')
+
+      const result = await attendanceService.checkIn(student_id, shift_id)
+      res.status(201).json(result)
+    } catch (err: any) {
+      const map: Record<string, [number, string]> = {
+        NOT_REGISTERED:    [403, 'Student does not have an approved registration'],
+        ALREADY_CHECKED_IN:[409, 'Student has already checked in'],
+        SHIFT_NOT_FOUND:   [404, 'Shift not found'],
+        TOO_EARLY:         [400, 'Too early to check in (max 1h before start)'],
+        FORBIDDEN:         [403, 'You do not own this shift'],
+      }
+      const [status, message] = map[err.message] ?? [500, err.message]
+      res.status(status).json({ error: err.message, message })
+    }
+  }
+
+  async manualCheckOut(req: AuthRequest, res: Response) {
+    try {
+      const { shift_id, student_id } = req.body
+      // Verify ownership
+      const [shiftRows] = await pool.query('SELECT employer_id FROM shifts WHERE id = ?', [shift_id])
+      const shift = (shiftRows as any[])[0]
+      if (!shift) throw new Error('SHIFT_NOT_FOUND')
+      if (shift.employer_id !== req.user!.id) throw new Error('FORBIDDEN')
+
+      const result = await attendanceService.checkOut(student_id, shift_id)
+      res.status(200).json(result)
+    } catch (err: any) {
+      const map: Record<string, [number, string]> = {
+        ATTENDANCE_NOT_FOUND: [404, 'No active attendance record found for this student'],
+        FORBIDDEN:            [403, 'You do not own this shift'],
       }
       const [status, message] = map[err.message] ?? [500, err.message]
       res.status(status).json({ error: err.message, message })

@@ -1,5 +1,4 @@
 import React from 'react'
-import { motion } from 'framer-motion'
 
 interface AuthLayoutProps {
   children: React.ReactNode
@@ -8,22 +7,15 @@ interface AuthLayoutProps {
 
 const AuthLayout: React.FC<AuthLayoutProps> = ({ children, className = '' }) => {
   return (
-    <div className="relative min-h-screen w-full flex bg-slate-900 font-sans overflow-hidden">
-      {/* Background Mesh Gradients - Shared across auth pages */}
+    <div className="relative min-h-screen w-full flex bg-slate-950 font-sans overflow-hidden">
+      {/* Ambient blobs */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
-        <motion.div
-          animate={{ scale: [1, 1.2, 1], rotate: [0, 45, 0], x: [-20, 20, -20] }}
-          transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-          className="absolute top-[-10%] right-[-10%] w-full h-full max-w-[800px] max-h-[800px] bg-indigo-600/20 blur-[120px] rounded-full"
-        />
-        <motion.div
-          animate={{ scale: [1.2, 1, 1.2], rotate: [0, -45, 0], x: [20, -20, 20] }}
-          transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
-          className="absolute bottom-[-10%] left-[-10%] w-full h-full max-w-[800px] max-h-[800px] bg-blue-600/10 blur-[120px] rounded-full"
-        />
+        <div className="absolute top-[-20%] right-[-10%] w-[650px] h-[650px] bg-cyan-600/[0.12] blur-[140px] rounded-full" />
+        <div className="absolute bottom-[-15%] left-[-10%] w-[550px] h-[550px] bg-blue-600/[0.10] blur-[120px] rounded-full" />
+        <div className="absolute top-[40%] left-[30%] w-[450px] h-[450px] bg-purple-600/[0.08] blur-[100px] rounded-full" />
+        <div className="absolute bottom-[5%] right-[5%] w-[280px] h-[280px] bg-cyan-500/[0.05] blur-[80px] rounded-full" />
       </div>
 
-      {/* Main Content Area */}
       <div className={`relative z-10 flex flex-1 w-full min-h-screen ${className}`}>
         {children}
       </div>

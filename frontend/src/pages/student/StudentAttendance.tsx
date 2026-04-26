@@ -6,10 +6,14 @@ import Button from '../../components/ui/Button'
 import { containerVariants, itemVariants } from '../../utils/animations'
 import { checkIn, checkOut, getMyAttendance } from '../../api/attendance'
 import { getShifts } from '../../api/shifts'
+import { getServerTime } from '../../api/devTime'
 
 const STATUS_STYLES: Record<string, string> = {
-  on_time: 'bg-emerald-100 text-emerald-700', late: 'bg-amber-100 text-amber-700',
-  absent: 'bg-red-100 text-red-600', incomplete: 'bg-slate-100 text-slate-500', pending: 'bg-slate-100 text-slate-400',
+  on_time: 'bg-emerald-500/10 text-emerald-400 ring-1 ring-inset ring-emerald-500/20',
+  late: 'bg-amber-500/10 text-amber-400 ring-1 ring-inset ring-amber-500/20',
+  absent: 'bg-red-500/10 text-red-400 ring-1 ring-inset ring-red-500/20',
+  incomplete: 'bg-slate-500/10 text-slate-400 ring-1 ring-inset ring-slate-500/20',
+  pending: 'bg-slate-500/10 text-slate-500 ring-1 ring-inset ring-slate-600/20',
 }
 const STATUS_LABELS: Record<string, string> = {
   on_time: 'Đúng giờ', late: 'Trễ', absent: 'Vắng mặt', incomplete: 'Chưa checkout', pending: 'Chờ điểm danh',
@@ -27,33 +31,54 @@ const StudentAttendance: React.FC = () => {
   const fetchData = async () => {
     setLoading(true)
     try {
-      const now = new Date()
-      const [shiftsData, attendData] = await Promise.all([
+      const [shiftsData, attendData, timeData] = await Promise.all([
         getShifts({ limit: 100 }),
         getMyAttendance({ limit: 20 }),
+        getServerTime().catch(() => ({ server_time: new Date().toISOString() }))
       ])
 
-      const myShifts = (shiftsData.shifts || []).filter((s: any) => s.my_registration_status === 'approved')
+      const now = new Date(timeData.server_time)
+      const nowMs = now.getTime()
+      
+      const myShifts = (shiftsData.shifts || [])
+        .filter((s: any) => s.my_registration_status === 'approved')
+        .sort((a: any, b: any) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
+
       const attendMap = new Map((attendData.attendance || []).map((a: any) => [a.shift_id, a]))
 
-      // Active = approved + already started + within 2h grace period after end_time
+      // Active = the earliest approved shift that is within the (now <= end+2h) window
       const active = myShifts.find((s: any) => {
         const att = attendMap.get(s.id) as any
-        const nowMs = now.getTime()
-        const endWithGrace = new Date(s.end_time).getTime() + 2 * 3600 * 1000
-        return new Date(s.start_time).getTime() <= nowMs && nowMs <= endWithGrace && !att?.check_out_time
+        if (att?.check_out_time) return false // Already finished
+        
+        const endTime = new Date(s.end_time).getTime()
+        const endWithGrace = endTime + 2 * 3600 * 1000
+        
+        // Always show the next upcoming shift as active (no start-time restriction)
+        return nowMs <= endWithGrace
       })
+      
       setCurrentShift(active || null)
       setCurrentAttend(active ? (attendMap.get(active.id) || null) : null)
 
-      // Upcoming = approved + hasn't started yet
-      setUpcomingShifts(myShifts.filter((s: any) => new Date(s.start_time) > now))
+      // Upcoming = approved shifts that are not the 'active' one
+      setUpcomingShifts(myShifts.filter((s: any) => {
+        if (active && s.id === active.id) return false
+        const startTime = new Date(s.start_time).getTime()
+        return startTime > nowMs
+      }))
 
       setHistory(attendData.attendance || [])
     } finally { setLoading(false) }
   }
 
-  useEffect(() => { fetchData() }, [])
+  useEffect(() => {
+    fetchData()
+    // Refresh when tab becomes visible
+    const handleVisibility = () => { if (document.visibilityState === 'visible') fetchData() }
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => document.removeEventListener('visibilitychange', handleVisibility)
+  }, [])
 
   const handleCheckIn = async () => {
     if (!currentShift) return
@@ -83,81 +108,89 @@ const StudentAttendance: React.FC = () => {
     <DashboardLayout>
       <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-6">
         <motion.div variants={itemVariants}>
-          <h1 className="text-3xl font-black text-white tracking-tight">Điểm danh</h1>
-          <p className="text-slate-400 mt-1">Ghi nhận giờ vào/ra ca làm của bạn</p>
+          <h1 className="text-xl font-display font-bold text-white tracking-tight">Điểm danh</h1>
+          <p className="text-slate-500 text-sm mt-0.5">Ghi nhận giờ vào/ra ca làm của bạn</p>
         </motion.div>
 
         {/* Current shift check-in/out */}
         <motion.div variants={itemVariants}>
-          <Card glass>
+          <div className="rounded-2xl bg-gradient-to-br from-cyan-500/[0.12] to-blue-500/[0.08] border border-cyan-500/20 p-6">
             {loading ? (
-              <p className="text-slate-400 text-center py-6">Đang tải...</p>
+              <p className="text-slate-500 text-center py-6">Đang tải...</p>
             ) : !currentShift ? (
               <div className="text-center py-8">
-                <p className="text-slate-500 font-semibold">Không có ca làm nào đang diễn ra</p>
+                <p className="text-slate-400 font-medium">Không có ca làm nào đang diễn ra</p>
                 <p className="text-slate-600 text-sm mt-1">Ca làm sẽ xuất hiện ở đây khi bạn có lịch</p>
               </div>
             ) : (
               <div className="text-center space-y-4">
                 <div>
-                  <p className="text-xs font-black text-indigo-600 uppercase tracking-widest mb-1">Ca đang diễn ra</p>
-                  <h2 className="text-xl font-black text-slate-900">{currentShift.job_title || 'Ca làm việc'}</h2>
-                  <p className="text-slate-500 text-sm mt-1">
+                  <p className="text-[10px] font-semibold text-cyan-400/80 uppercase tracking-widest mb-2">Ca đang diễn ra</p>
+                  <h2 className="text-xl font-display font-bold text-white">{currentShift.job_title || 'Ca làm việc'}</h2>
+                  <p className="text-slate-400 text-sm mt-1">
+                    {new Date(currentShift.start_time).toLocaleDateString('vi-VN', { dateStyle: 'medium' })}
+                    <br />
                     {new Date(currentShift.start_time).toLocaleTimeString('vi-VN', { timeStyle: 'short' })}
                     {' — '}
                     {new Date(currentShift.end_time).toLocaleTimeString('vi-VN', { timeStyle: 'short' })}
                   </p>
                 </div>
 
+                <div className="flex justify-center">
+                  <button onClick={fetchData} className="text-[10px] text-slate-600 hover:text-slate-400 transition-colors uppercase tracking-widest font-bold">
+                    ⟳ Làm mới dữ liệu
+                  </button>
+                </div>
+
                 {message && (
-                  <p className={`text-sm font-bold ${message.startsWith('✓') ? 'text-emerald-600' : message.startsWith('⚠') ? 'text-amber-600' : 'text-red-500'}`}>
+                  <p className={`text-sm font-semibold ${message.startsWith('✓') ? 'text-emerald-400' : message.startsWith('⚠') ? 'text-amber-400' : 'text-red-400'}`}>
                     {message}
                   </p>
                 )}
 
                 {!currentAttend ? (
-                  <Button variant="primary" isLoading={actionLoading} onClick={handleCheckIn}
-                    className="w-full max-w-xs mx-auto text-lg py-4">
+                  <Button variant="primary" size="lg" isLoading={actionLoading} onClick={handleCheckIn}
+                    className="w-full max-w-xs mx-auto">
                     CHECK IN
                   </Button>
                 ) : !currentAttend.check_out_time ? (
-                  <div className="space-y-2">
-                    <p className="text-emerald-600 font-bold text-sm">
-                      ✓ Đã check-in lúc {new Date(currentAttend.check_in_time).toLocaleTimeString('vi-VN', { timeStyle: 'short' })}
+                  <div className="space-y-3">
+                    <p className="text-emerald-400 font-semibold text-sm">
+                      Đã check-in lúc {new Date(currentAttend.check_in_time).toLocaleTimeString('vi-VN', { timeStyle: 'short' })}
                       {currentAttend.late_minutes > 0 && ` (trễ ${currentAttend.late_minutes} phút)`}
                     </p>
-                    <Button variant="secondary" isLoading={actionLoading} onClick={handleCheckOut}
-                      className="w-full max-w-xs mx-auto text-lg py-4">
+                    <Button variant="danger" size="lg" isLoading={actionLoading} onClick={handleCheckOut}
+                      className="w-full max-w-xs mx-auto">
                       CHECK OUT
                     </Button>
                   </div>
                 ) : (
-                  <p className="text-slate-600 font-bold">
-                    ✓ Đã checkout lúc {new Date(currentAttend.check_out_time).toLocaleTimeString('vi-VN', { timeStyle: 'short' })}
+                  <p className="text-slate-400 font-semibold">
+                    Đã checkout lúc {new Date(currentAttend.check_out_time).toLocaleTimeString('vi-VN', { timeStyle: 'short' })}
                   </p>
                 )}
               </div>
             )}
-          </Card>
+          </div>
         </motion.div>
 
         {/* Upcoming approved shifts */}
         {upcomingShifts.length > 0 && (
           <motion.div variants={itemVariants}>
-            <Card glass>
-              <h2 className="text-lg font-black text-slate-900 mb-3">Ca làm sắp tới ({upcomingShifts.length})</h2>
-              <div className="space-y-2">
+            <Card className="p-5">
+              <h2 className="text-sm font-display font-semibold text-slate-200 mb-3">Ca làm sắp tới ({upcomingShifts.length})</h2>
+              <div>
                 {upcomingShifts.map(s => (
-                  <div key={s.id} className="flex items-center justify-between gap-4 py-2.5 border-b border-slate-100 last:border-0">
+                  <div key={s.id} className="flex items-center justify-between gap-4 py-3 border-b border-white/[0.06] last:border-0">
                     <div>
-                      <p className="font-bold text-slate-900 text-sm">{s.job_title || s.title || 'Ca làm việc'}</p>
+                      <p className="font-semibold text-slate-100 text-sm">{s.job_title || s.title || 'Ca làm việc'}</p>
                       <p className="text-xs text-slate-500">
                         {new Date(s.start_time).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' })}
                         {' → '}
                         {new Date(s.end_time).toLocaleTimeString('vi-VN', { timeStyle: 'short' })}
                       </p>
                     </div>
-                    <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-indigo-100 text-indigo-700">Đã duyệt</span>
+                    <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold bg-cyan-500/10 text-cyan-400 ring-1 ring-inset ring-cyan-500/20">Đã duyệt</span>
                   </div>
                 ))}
               </div>
@@ -167,23 +200,23 @@ const StudentAttendance: React.FC = () => {
 
         {/* History */}
         <motion.div variants={itemVariants}>
-          <Card glass>
-            <h2 className="text-lg font-black text-slate-900 mb-4">Lịch sử điểm danh</h2>
+          <Card className="p-5">
+            <h2 className="text-sm font-display font-semibold text-slate-200 mb-4">Lịch sử điểm danh</h2>
             {history.length === 0 ? (
-              <p className="text-slate-400 text-sm text-center py-6">Chưa có lịch sử điểm danh.</p>
+              <p className="text-slate-500 text-sm text-center py-6">Chưa có lịch sử điểm danh.</p>
             ) : (
-              <div className="space-y-3">
+              <div>
                 {history.map(a => (
-                  <div key={a.id} className="flex items-center justify-between gap-4 py-3 border-b border-slate-100 last:border-0">
+                  <div key={a.id} className="flex items-center justify-between gap-4 py-3.5 border-b border-white/[0.06] last:border-0 hover:bg-white/[0.02] rounded-lg transition-colors">
                     <div>
-                      <p className="font-bold text-slate-900 text-sm">{a.job_title || a.shift_title || 'Ca làm việc'}</p>
+                      <p className="font-semibold text-slate-200 text-sm">{a.job_title || a.shift_title || 'Ca làm việc'}</p>
                       <p className="text-xs text-slate-500">
                         {new Date(a.start_time).toLocaleDateString('vi-VN', { dateStyle: 'medium' })}
                         {a.hours_worked != null && ` · ${Number(a.hours_worked).toFixed(1)}h`}
                         {a.late_minutes > 0 && ` · Trễ ${a.late_minutes}p`}
                       </p>
                     </div>
-                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-black ${STATUS_STYLES[a.status]}`}>
+                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_STYLES[a.status]}`}>
                       {STATUS_LABELS[a.status]}
                     </span>
                   </div>

@@ -30,6 +30,9 @@ export class AttendanceService {
 
     const now = getNow()
     const startTime = new Date(shift.start_time)
+    if (now.getTime() < startTime.getTime() - 1 * 3600 * 1000) {
+      throw new Error('TOO_EARLY')
+    }
     const lateMinutes = Math.max(0, Math.floor((now.getTime() - startTime.getTime()) / 60000))
     const isLate = lateMinutes > LATE_THRESHOLD_MINUTES
     const status = isLate ? 'late' : 'on_time'
@@ -119,9 +122,13 @@ export class AttendanceService {
     if (shift.employer_id !== employerId) throw new Error('FORBIDDEN')
 
     const [rows] = await pool.query(
-      `SELECT a.*, u.full_name, u.email FROM attendance a
-       JOIN users u ON a.student_id = u.id
-       WHERE a.shift_id = ? ORDER BY a.check_in_time ASC`,
+      `SELECT sr.student_id, u.full_name, u.email, a.id, a.check_in_time, a.check_out_time,
+              COALESCE(a.status, 'pending') as status, a.late_minutes, a.hours_worked, a.note
+       FROM shift_registrations sr
+       JOIN users u ON sr.student_id = u.id
+       LEFT JOIN attendance a ON sr.shift_id = a.shift_id AND sr.student_id = a.student_id
+       WHERE sr.shift_id = ? AND sr.status = 'approved'
+       ORDER BY a.check_in_time ASC, u.full_name ASC`,
       [shiftId]
     )
     return { attendance: rows }

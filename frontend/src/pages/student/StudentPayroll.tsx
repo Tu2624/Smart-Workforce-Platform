@@ -7,9 +7,9 @@ import { containerVariants, itemVariants } from '../../utils/animations'
 import { getMyPayroll } from '../../api/payroll'
 
 const STATUS_STYLES: Record<string, string> = {
-  draft: 'bg-amber-100 text-amber-700',
-  confirmed: 'bg-indigo-100 text-indigo-700',
-  paid: 'bg-emerald-100 text-emerald-700',
+  draft: 'bg-amber-500/10 text-amber-400 ring-1 ring-inset ring-amber-500/20',
+  confirmed: 'bg-cyan-500/10 text-cyan-400 ring-1 ring-inset ring-cyan-500/20',
+  paid: 'bg-emerald-500/10 text-emerald-400 ring-1 ring-inset ring-emerald-500/20',
 }
 const STATUS_LABELS: Record<string, string> = {
   draft: 'Nháp', confirmed: 'Đã xác nhận', paid: 'Đã thanh toán',
@@ -27,48 +27,64 @@ const StudentPayroll: React.FC = () => {
 
   return (
     <DashboardLayout>
-      <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-6">
+      <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-6 max-w-2xl">
         <motion.div variants={itemVariants}>
-          <h1 className="text-3xl font-black text-white tracking-tight">Lương của tôi</h1>
-          <p className="text-slate-400 mt-1">Theo dõi thu nhập theo từng tháng</p>
+          <h1 className="text-xl font-display font-bold text-white tracking-tight">Lương của tôi</h1>
+          <p className="text-slate-500 text-sm mt-0.5">Theo dõi thu nhập theo từng tháng</p>
+        </motion.div>
+
+        {/* Earnings banner */}
+        <motion.div variants={itemVariants}>
+          <div className="rounded-2xl bg-gradient-to-r from-cyan-600/[0.18] via-blue-600/[0.14] to-purple-600/[0.10] border border-cyan-500/20 p-6">
+            <p className="text-[11px] font-semibold text-cyan-500/70 uppercase tracking-widest mb-1">Tổng đã nhận</p>
+            <p className="text-3xl font-display font-bold text-cyan-300 tabular-nums">{totalEarned.toLocaleString('vi-VN')}đ</p>
+            <p className="text-slate-500 text-xs mt-1">Từ tất cả các kỳ lương đã thanh toán</p>
+          </div>
         </motion.div>
 
         <motion.div variants={itemVariants}>
-          <Card glass>
-            <p className="text-xs font-black text-emerald-600 uppercase tracking-widest mb-1">Tổng đã nhận</p>
-            <p className="text-3xl font-black text-slate-900">{totalEarned.toLocaleString('vi-VN')}đ</p>
-          </Card>
-        </motion.div>
-
-        <motion.div variants={itemVariants}>
-          <Card glass>
-            <h2 className="text-lg font-black text-slate-900 mb-4">Lịch sử bảng lương</h2>
+          <Card className="overflow-hidden">
+            <div className="px-5 py-4 border-b border-white/[0.08]">
+              <h2 className="text-sm font-display font-semibold text-slate-200">Lịch sử bảng lương</h2>
+            </div>
             {loading ? (
-              <p className="text-slate-400 text-center py-8">Đang tải...</p>
+              <p className="text-slate-500 text-center py-8">Đang tải...</p>
             ) : payroll.length === 0 ? (
-              <p className="text-slate-400 text-center py-8">Chưa có dữ liệu lương.</p>
+              <p className="text-slate-500 text-center py-8">Chưa có dữ liệu lương.</p>
             ) : (
-              <div className="space-y-3">
-                {payroll.map(p => (
-                  <Link key={p.id} to={`/student/payroll/${p.id}`}
-                    className="flex items-center justify-between gap-4 py-3 border-b border-slate-100 last:border-0 hover:bg-slate-50/50 rounded-xl px-2 -mx-2 transition-colors">
-                    <div>
-                      <p className="font-black text-slate-900 text-sm">
-                        Tháng {p.period_start?.slice(5, 7)}/{p.period_start?.slice(0, 4)}
-                      </p>
-                      <p className="text-xs text-slate-500 mt-0.5">
-                        {p.company_name || p.employer_name} · {Number(p.total_hours).toFixed(1)}h
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-black text-slate-900">{Number(p.total_amount).toLocaleString('vi-VN')}đ</p>
-                      <span className={`inline-block mt-1 px-2 py-0.5 rounded-full text-xs font-black ${STATUS_STYLES[p.status]}`}>
-                        {STATUS_LABELS[p.status]}
-                      </span>
-                    </div>
-                  </Link>
-                ))}
-              </div>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-white/[0.08]">
+                    <th className="px-5 pb-3 pt-4 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-widest">Kỳ lương</th>
+                    <th className="px-5 pb-3 pt-4 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-widest hidden sm:table-cell">Công ty</th>
+                    <th className="px-5 pb-3 pt-4 text-right text-[11px] font-semibold text-slate-500 uppercase tracking-widest">Số tiền</th>
+                    <th className="px-5 pb-3 pt-4 text-right text-[11px] font-semibold text-slate-500 uppercase tracking-widest">Trạng thái</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/[0.04]">
+                  {payroll.map(p => (
+                    <tr key={p.id} className="hover:bg-white/[0.04] transition-colors">
+                      <td className="px-5 py-3.5">
+                        <Link to={`/student/payroll/${p.id}`} className="font-semibold text-slate-200 hover:text-cyan-400 transition-colors">
+                          Tháng {p.period_start?.slice(5, 7)}/{p.period_start?.slice(0, 4)}
+                        </Link>
+                        <p className="text-xs text-slate-500 mt-0.5">{Number(p.total_hours).toFixed(1)}h</p>
+                      </td>
+                      <td className="px-5 py-3.5 text-slate-400 text-sm hidden sm:table-cell">
+                        {p.company_name || p.employer_name}
+                      </td>
+                      <td className="px-5 py-3.5 text-right font-semibold text-slate-200 tabular-nums">
+                        {Number(p.total_amount).toLocaleString('vi-VN')}đ
+                      </td>
+                      <td className="px-5 py-3.5 text-right">
+                        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_STYLES[p.status]}`}>
+                          {STATUS_LABELS[p.status]}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             )}
           </Card>
         </motion.div>

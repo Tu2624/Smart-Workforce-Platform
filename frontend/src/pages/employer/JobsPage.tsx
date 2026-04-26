@@ -10,9 +10,9 @@ import { getJobs, createJob, deleteJob } from '../../api/jobs'
 import { Job } from '../../types'
 
 const STATUS_STYLES: Record<string, string> = {
-  active: 'bg-emerald-100 text-emerald-700',
-  paused: 'bg-amber-100 text-amber-700',
-  closed: 'bg-slate-100 text-slate-500',
+  active: 'bg-emerald-500/10 text-emerald-400 ring-1 ring-inset ring-emerald-500/20',
+  paused: 'bg-amber-500/10 text-amber-400 ring-1 ring-inset ring-amber-500/20',
+  closed: 'bg-slate-500/10 text-slate-400 ring-1 ring-inset ring-slate-500/20',
 }
 const STATUS_LABELS: Record<string, string> = {
   active: 'Đang tuyển', paused: 'Tạm dừng', closed: 'Đã đóng',
@@ -81,17 +81,18 @@ const JobsPage: React.FC = () => {
       <motion.div variants={containerVariants} initial="hidden" animate="visible" className="space-y-6">
         <motion.div variants={itemVariants} className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-black text-white tracking-tight">Việc làm</h1>
-            <p className="text-slate-400 mt-1">{jobs.length} việc làm</p>
+            <h1 className="text-xl font-display font-bold text-white tracking-tight">Việc làm</h1>
+            <p className="text-slate-500 text-sm mt-0.5">{jobs.length} việc làm</p>
           </div>
           <Button variant="primary" onClick={() => { setShowForm(true); setError('') }}>+ Tạo việc làm</Button>
         </motion.div>
 
         <AnimatePresence>
           {deleteError && (
-            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
-              className="bg-red-50 border border-red-100 text-red-600 px-4 py-3 rounded-xl text-sm font-semibold">
-              {deleteError}
+            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
+              <div className="flex items-center gap-3 bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-xl text-sm">
+                {deleteError}
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
@@ -101,16 +102,21 @@ const JobsPage: React.FC = () => {
           {showForm && (
             <motion.div key="job-form" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }} transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }} className="overflow-hidden">
-              <Card glass>
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-xl font-black text-slate-900">Tạo việc làm mới</h2>
-                  <button onClick={() => setShowForm(false)} className="text-slate-400 hover:text-slate-600 text-2xl leading-none">×</button>
+              <Card className="p-6">
+                <div className="flex items-center justify-between mb-5">
+                  <h2 className="text-base font-display font-semibold text-slate-100">Tạo việc làm mới</h2>
+                  <button onClick={() => setShowForm(false)} className="text-slate-500 hover:text-slate-300 transition-colors p-1 rounded-lg hover:bg-white/[0.06]" aria-label="Đóng">
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
                 </div>
                 <AnimatePresence mode="wait">
                   {error && (
-                    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
-                      className="mb-4 bg-red-50 text-red-600 px-4 py-3 rounded-xl text-sm font-semibold border border-red-100">
-                      {error}
+                    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden mb-4">
+                      <div className="flex items-center gap-3 bg-red-500/10 border border-red-500/30 text-red-400 px-4 py-3 rounded-xl text-sm">
+                        {error}
+                      </div>
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -135,25 +141,27 @@ const JobsPage: React.FC = () => {
         {/* Job list */}
         <motion.div variants={itemVariants} className="space-y-3">
           {loading ? (
-            <p className="text-slate-400 text-center py-12">Đang tải...</p>
+            <p className="text-slate-500 text-center py-12">Đang tải...</p>
           ) : jobs.length === 0 ? (
-            <Card glass><p className="text-slate-400 text-center py-8">Chưa có việc làm nào. Tạo việc làm đầu tiên!</p></Card>
+            <Card className="p-8"><p className="text-slate-500 text-center">Chưa có việc làm nào. Tạo việc làm đầu tiên!</p></Card>
           ) : (
             jobs.map((job, i) => (
               <motion.div key={job.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
-                <Card glass className="!p-5">
+                <Card className="p-5">
                   <div className="flex items-center justify-between gap-4">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-3 flex-wrap">
-                        <h3 className="font-black text-slate-900 text-lg">{job.title}</h3>
-                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-black ${STATUS_STYLES[job.status]}`}>
+                        <h3 className="font-semibold text-slate-100">{job.title}</h3>
+                        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_STYLES[job.status]}`}>
                           {STATUS_LABELS[job.status]}
                         </span>
                       </div>
-                      <p className="text-slate-500 text-sm mt-1">
-                        {job.hourly_rate.toLocaleString('vi-VN')}đ/giờ · Tối đa {job.max_workers} người
-                        {job.required_skills?.length > 0 && ` · ${job.required_skills.join(', ')}`}
-                      </p>
+                      <div className="flex items-center gap-2 flex-wrap mt-1">
+                        <span className="text-slate-500 text-sm">{job.hourly_rate.toLocaleString('vi-VN')}đ/giờ · Tối đa {job.max_workers} người</span>
+                        {job.required_skills?.map((skill: string) => (
+                          <span key={skill} className="bg-white/[0.06] text-slate-400 rounded-full px-2 py-0.5 text-xs border border-white/[0.08]">{skill}</span>
+                        ))}
+                      </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <Link to={`/employer/jobs/${job.id}`}>
