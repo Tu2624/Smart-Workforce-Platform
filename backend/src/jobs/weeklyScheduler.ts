@@ -3,6 +3,7 @@ import pool from '../config/database'
 import { createNotification } from '../utils/notificationHelper'
 import { notifyUser } from '../config/socket'
 import { getNow } from '../utils/serverTime'
+import { hasApprovedConflict } from '../utils/shiftConflict'
 
 export async function runWeeklyScheduler() {
   console.log('[Scheduler] Running weekly shift assignment...')
@@ -23,7 +24,7 @@ export async function runWeeklyScheduler() {
      JOIN student_profiles sp ON sp.user_id = sr.student_id
      WHERE sr.status = 'pending' AND s.start_time BETWEEN ? AND ? AND s.status != 'cancelled'
      ORDER BY sr.shift_id, sp.reputation_score DESC, sr.registered_at ASC`,
-    [weekStart.toISOString(), weekEnd.toISOString()]
+    [weekStart, weekEnd]
   )
 
   console.log(`[Scheduler] Found ${(pendingRows as any[]).length} pending registrations to process.`)
@@ -39,7 +40,6 @@ export async function runWeeklyScheduler() {
     const shift = regs[0]
     const availableSlots = shift.max_workers - shift.current_workers
     let approved = 0
-    const approvedStudentTimes: Array<{ studentId: string; start: Date; end: Date }> = []
 
     const connection = await pool.getConnection()
     try {
@@ -71,11 +71,14 @@ export async function runWeeklyScheduler() {
           continue
         }
 
-        // Check time conflict with already-approved shifts for this student
-        const hasConflict = approvedStudentTimes.some(
-          t => t.studentId === reg.student_id &&
-               new Date(reg.start_time) < t.end &&
-               new Date(reg.end_time) > t.start
+        // Check time conflict using DB query — correctly detects conflicts across all shifts,
+        // including those approved earlier in this same transaction (same connection = sees own writes)
+        const hasConflict = await hasApprovedConflict(
+          connection,
+          reg.student_id,
+          new Date(reg.start_time),
+          new Date(reg.end_time),
+          reg.shift_id
         )
 
         if (hasConflict) {
@@ -94,11 +97,6 @@ export async function runWeeklyScheduler() {
           "UPDATE shift_registrations SET status = 'approved', reviewed_at = NOW() WHERE id = ?",
           [reg.id]
         )
-        approvedStudentTimes.push({
-          studentId: reg.student_id,
-          start: new Date(reg.start_time),
-          end: new Date(reg.end_time),
-        })
         approved++
 
         await createNotification(reg.student_id, 'shift_approved', 'Đăng ký ca làm được duyệt',
@@ -127,7 +125,7 @@ export async function runWeeklyScheduler() {
 }
 
 export function startWeeklyScheduler() {
-  // Every Monday at 00:00
-  cron.schedule('0 0 * * 1', runWeeklyScheduler, { timezone: 'Asia/Ho_Chi_Minh' })
-  console.log('[Scheduler] Weekly scheduler registered (Mon 00:00 ICT)')
+  // Every Sunday at 12:00 — runs immediately after the registration deadline closes
+  cron.schedule('0 12 * * 0', runWeeklyScheduler, { timezone: 'Asia/Ho_Chi_Minh' })
+  console.log('[Scheduler] Weekly scheduler registered (Sun 12:00 ICT)')
 }

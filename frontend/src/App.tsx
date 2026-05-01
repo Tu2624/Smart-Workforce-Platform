@@ -24,6 +24,7 @@ import EmployerPayrollDetail from './pages/employer/PayrollDetailPage'
 import NotificationPage from './pages/shared/NotificationPage'
 import ReportsPage from './pages/employer/ReportsPage'
 import EmployeesPage from './pages/employer/EmployeesPage'
+import RolesPage from './pages/employer/RolesPage'
 
 const Unauthorized = () => <div className="p-8 text-red-500"><h1>Unauthorized Access</h1></div>
 
@@ -58,6 +59,7 @@ const router = createBrowserRouter([
           { path: '/employer/payroll',          element: <PayrollList /> },
           { path: '/employer/payroll/:id',      element: <EmployerPayrollDetail /> },
           { path: '/employer/employees',        element: <EmployeesPage /> },
+          { path: '/employer/roles',            element: <RolesPage /> },
           { path: '/employer/reports',          element: <ReportsPage /> },
           { path: '/employer/notifications',    element: <NotificationPage /> },
         ],

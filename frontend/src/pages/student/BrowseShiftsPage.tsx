@@ -57,6 +57,7 @@ const BrowseShiftsPage: React.FC = () => {
       if (code === 'ALREADY_REGISTERED') showMessage('error', 'Bạn đã đăng ký ca này rồi.')
       else if (code === 'SHIFT_FULL') showMessage('error', 'Ca làm đã đầy chỗ.')
       else if (code === 'FORBIDDEN') showMessage('error', 'Bạn không có quyền đăng ký ca này.')
+      else if (code === 'SHIFT_TIME_CONFLICT') showMessage('error', 'Ca này trùng lịch với ca đã được duyệt của bạn.')
       else showMessage('error', 'Đăng ký thất bại. Vui lòng thử lại.')
     } finally {
       setActionLoading(null)
@@ -152,6 +153,11 @@ const BrowseShiftsPage: React.FC = () => {
                           <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${SHIFT_STATUS_BADGE[shiftStatus] || 'bg-slate-500/10 text-slate-400'}`}>
                             {SHIFT_STATUS_LABEL[shiftStatus] || shiftStatus}
                           </span>
+                          {shift.role_name && (
+                            <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold bg-violet-500/10 text-violet-400 ring-1 ring-inset ring-violet-500/20">
+                              {shift.role_name}
+                            </span>
+                          )}
                           {isPending && <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold bg-amber-500/10 text-amber-400 ring-1 ring-inset ring-amber-500/20">Chờ duyệt</span>}
                           {isApproved && <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold bg-cyan-500/10 text-cyan-400 ring-1 ring-inset ring-cyan-500/20">Đã duyệt</span>}
                           {isRejected && <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold bg-red-500/10 text-red-400 ring-1 ring-inset ring-red-500/20">Bị từ chối</span>}

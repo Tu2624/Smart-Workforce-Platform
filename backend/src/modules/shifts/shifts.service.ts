@@ -4,21 +4,30 @@ import { createNotification } from '../../utils/notificationHelper'
 import { notifyUser, notifyShiftRoom } from '../../config/socket'
 import { adjustReputation } from '../../utils/reputationCalc'
 import { AppError } from '../../utils/appError'
+import { hasApprovedConflict } from '../../utils/shiftConflict'
 import { IShift, IShiftRegistration } from '../../types'
 
 export class ShiftsService {
   async createShift(employerId: string, data: Partial<IShift>): Promise<{ shift: IShift }> {
-    const { job_id, start_time, end_time, max_workers, title, auto_assign } = data
+    const { job_id, start_time, end_time, max_workers, title, auto_assign, role_id } = data as any
 
     const [jobRows] = await pool.query('SELECT * FROM jobs WHERE id = ?', [job_id])
     const job = (jobRows as any[])[0]
     if (!job) throw new Error('JOB_NOT_FOUND')
     if (job.employer_id !== employerId) throw new Error('FORBIDDEN')
 
+    if (role_id) {
+      const [roleRows] = await pool.query(
+        'SELECT id FROM employer_roles WHERE id = ? AND employer_id = ?',
+        [role_id, employerId]
+      )
+      if (!(roleRows as any[]).length) throw new Error('INVALID_ROLE_ID')
+    }
+
     const shiftId = uuidv4()
     await pool.query(
-      'INSERT INTO shifts (id, job_id, employer_id, title, start_time, end_time, max_workers, auto_assign) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      [shiftId, job_id, employerId, title ?? null, start_time, end_time, max_workers, auto_assign ? 1 : 0]
+      'INSERT INTO shifts (id, job_id, employer_id, title, start_time, end_time, max_workers, auto_assign, role_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [shiftId, job_id, employerId, title ?? null, start_time, end_time, max_workers, auto_assign ? 1 : 0, role_id ?? null]
     )
 
     return this.getShift(shiftId, 'employer')
@@ -37,8 +46,10 @@ export class ShiftsService {
       values.push(userId)
       if (query.status) { conditions.push('s.status = ?'); values.push(query.status) }
     } else if (role === 'student') {
-      const [profileRows] = await pool.query('SELECT employer_id FROM student_profiles WHERE user_id = ?', [userId])
-      const studentEmployerId = (profileRows as any[])[0]?.employer_id || null
+      const [profileRows] = await pool.query('SELECT employer_id, role_id FROM student_profiles WHERE user_id = ?', [userId])
+      const profile = (profileRows as any[])[0] || {}
+      const studentEmployerId = profile.employer_id || null
+      const studentRoleId = profile.role_id || null
 
       conditions.push("j.status = 'active'")
       conditions.push('s.employer_id = ?')
@@ -49,6 +60,11 @@ export class ShiftsService {
         WHERE sr.shift_id = s.id AND sr.student_id = ? AND sr.status NOT IN ('cancelled')
       ))`)
       values.push(userId)
+      // Role-based visibility: only show shifts matching student's role, or shifts with no role requirement
+      if (studentRoleId) {
+        conditions.push('(s.role_id IS NULL OR s.role_id = ?)')
+        values.push(studentRoleId)
+      }
     }
     // admin: no filter — return all shifts
 
@@ -67,9 +83,11 @@ export class ShiftsService {
     const total = (countRows as any[])[0].total
 
     const [rows] = await pool.query(
-      `SELECT s.*, j.title as job_title, j.hourly_rate, j.status as job_status
+      `SELECT s.*, j.title as job_title, j.hourly_rate, j.status as job_status,
+              er.name as role_name
        FROM shifts s
        LEFT JOIN jobs j ON s.job_id = j.id
+       LEFT JOIN employer_roles er ON s.role_id = er.id
        ${where}
        ORDER BY s.start_time ASC
        LIMIT ? OFFSET ?`,
@@ -96,9 +114,11 @@ export class ShiftsService {
 
   async getShift(shiftId: string, role: string, userId?: string): Promise<{ shift: IShift }> {
     const [rows] = await pool.query(
-      `SELECT s.*, j.title as job_title, j.hourly_rate, j.status as job_status, j.description as job_description
+      `SELECT s.*, j.title as job_title, j.hourly_rate, j.status as job_status, j.description as job_description,
+              er.name as role_name
        FROM shifts s
        LEFT JOIN jobs j ON s.job_id = j.id
+       LEFT JOIN employer_roles er ON s.role_id = er.id
        WHERE s.id = ?`,
       [shiftId]
     )
@@ -133,10 +153,20 @@ export class ShiftsService {
     if (shift.employer_id !== employerId) throw new Error('FORBIDDEN')
     if (shift.status !== 'open') throw new Error('CANNOT_EDIT_SHIFT')
 
-    const { title, start_time, end_time, max_workers, auto_assign } = data
+    const { title, start_time, end_time, max_workers, auto_assign, role_id } = data as any
     const updates: string[] = []
     const values: any[] = []
 
+    if (role_id !== undefined) {
+      if (role_id !== null) {
+        const [roleRows] = await pool.query(
+          'SELECT id FROM employer_roles WHERE id = ? AND employer_id = ?',
+          [role_id, employerId]
+        )
+        if (!(roleRows as any[]).length) throw new Error('INVALID_ROLE_ID')
+      }
+      updates.push('role_id = ?'); values.push(role_id ?? null)
+    }
     if (title !== undefined) { updates.push('title = ?'); values.push(title) }
     if (start_time !== undefined) { updates.push('start_time = ?'); values.push(start_time) }
     if (end_time !== undefined) { updates.push('end_time = ?'); values.push(end_time) }
@@ -150,20 +180,37 @@ export class ShiftsService {
     return this.getShift(shiftId, 'employer')
   }
 
+  async cloneShift(shiftId: string, employerId: string, daysOffset = 7): Promise<{ shift: IShift }> {
+    const [rows] = await pool.query('SELECT * FROM shifts WHERE id = ?', [shiftId])
+    const shift = (rows as any[])[0]
+    if (!shift) throw new Error('SHIFT_NOT_FOUND')
+    if (shift.employer_id !== employerId) throw new Error('FORBIDDEN')
+    if (shift.status === 'cancelled') throw new Error('CANNOT_CLONE_CANCELLED')
+
+    const addDays = (dt: Date) => new Date(dt.getTime() + daysOffset * 86400000)
+    const newStart = addDays(new Date(shift.start_time))
+    const newEnd = addDays(new Date(shift.end_time))
+
+    const newId = uuidv4()
+    await pool.query(
+      'INSERT INTO shifts (id, job_id, employer_id, title, start_time, end_time, max_workers, auto_assign, role_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [newId, shift.job_id, employerId, shift.title ?? null, newStart, newEnd, shift.max_workers, shift.auto_assign, shift.role_id ?? null]
+    )
+    return this.getShift(newId, 'employer')
+  }
+
   async deleteShift(shiftId: string, employerId: string): Promise<{ message: string }> {
     const [rows] = await pool.query('SELECT * FROM shifts WHERE id = ?', [shiftId])
     const shift = (rows as any[])[0]
     if (!shift) throw new Error('SHIFT_NOT_FOUND')
     if (shift.employer_id !== employerId) throw new Error('FORBIDDEN')
+    if (!['open', 'cancelled'].includes(shift.status)) throw new Error('CANNOT_DELETE_SHIFT')
 
     const connection = await pool.getConnection()
     await connection.beginTransaction()
     try {
-      await connection.query(
-        "UPDATE shift_registrations SET status = 'cancelled' WHERE shift_id = ? AND status IN ('pending', 'approved')",
-        [shiftId]
-      )
-      await connection.query("UPDATE shifts SET status = 'cancelled' WHERE id = ?", [shiftId])
+      await connection.query('DELETE FROM shift_registrations WHERE shift_id = ?', [shiftId])
+      await connection.query('DELETE FROM shifts WHERE id = ?', [shiftId])
       await connection.commit()
     } catch (err) {
       await connection.rollback()
@@ -172,7 +219,7 @@ export class ShiftsService {
       connection.release()
     }
 
-    return { message: 'Shift cancelled successfully' }
+    return { message: 'Shift deleted successfully' }
   }
 
   async registerShift(shiftId: string, studentId: string): Promise<{ message: string }> {
@@ -187,6 +234,15 @@ export class ShiftsService {
       if (!shift) throw new Error('SHIFT_NOT_FOUND')
       if (shift.status === 'cancelled' || shift.status === 'completed') throw new Error('SHIFT_NOT_OPEN')
       if (!profile || profile.employer_id.toLowerCase() !== shift.employer_id.toLowerCase()) throw new Error('FORBIDDEN')
+
+      // Real-time conflict check: reject immediately if student has an approved shift that overlaps
+      const conflict = await hasApprovedConflict(
+        connection,
+        studentId,
+        new Date(shift.start_time),
+        new Date(shift.end_time)
+      )
+      if (conflict) throw new Error('SHIFT_TIME_CONFLICT')
 
       const regId = uuidv4()
       await connection.query(
@@ -357,6 +413,44 @@ export class ShiftsService {
     return {
       upcoming_shifts: Number((rows as any[])[0].upcoming),
       monthly_earnings: parseFloat(payrollRow.monthly_earnings),
+    }
+  }
+
+  async getStudentChartData(studentId: string): Promise<{
+    earningsTrend: { month: string; earnings: number }[]
+    statusBreakdown: { name: string; value: number }[]
+  }> {
+    // 6-month earnings trend
+    const [earnRows] = await pool.query(
+      `SELECT DATE_FORMAT(period_start, '%Y-%m') as month, COALESCE(SUM(total_amount), 0) as earnings
+       FROM payroll
+       WHERE student_id = ? AND period_start >= DATE_FORMAT(DATE_SUB(NOW(), INTERVAL 5 MONTH), '%Y-%m-01')
+       GROUP BY month ORDER BY month ASC`,
+      [studentId]
+    ) as any
+
+    // Shift status breakdown (all time)
+    const [statusRows] = await pool.query(
+      `SELECT sr.status, COUNT(*) as cnt
+       FROM shift_registrations sr
+       WHERE sr.student_id = ?
+       GROUP BY sr.status`,
+      [studentId]
+    ) as any
+
+    const statusLabelMap: Record<string, string> = {
+      approved: 'Đã duyệt',
+      pending: 'Đang chờ',
+      rejected: 'Bị từ chối',
+      cancelled: 'Đã hủy',
+    }
+
+    return {
+      earningsTrend: (earnRows as any[]).map((r: any) => ({ month: r.month, earnings: parseFloat(r.earnings) })),
+      statusBreakdown: (statusRows as any[]).map((r: any) => ({
+        name: statusLabelMap[r.status] ?? r.status,
+        value: Number(r.cnt),
+      })),
     }
   }
 

@@ -7,6 +7,7 @@ import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
 import { containerVariants, itemVariants } from '../../utils/animations'
 import { getJobs, createJob, deleteJob } from '../../api/jobs'
+import { getRoles } from '../../api/employers'
 import { Job } from '../../types'
 
 const STATUS_STYLES: Record<string, string> = {
@@ -20,12 +21,13 @@ const STATUS_LABELS: Record<string, string> = {
 
 const JobsPage: React.FC = () => {
   const [jobs, setJobs] = useState<Job[]>([])
+  const [roles, setRoles] = useState<{ id: string; name: string }[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [deleteError, setDeleteError] = useState('')
-  const [form, setForm] = useState({ title: '', hourly_rate: '', max_workers: '', description: '', required_skills: '' })
+  const [form, setForm] = useState({ role_id: '', hourly_rate: '', max_workers: '', required_skills: '' })
 
   const fetchJobs = async () => {
     try {
@@ -36,24 +38,28 @@ const JobsPage: React.FC = () => {
     }
   }
 
-  useEffect(() => { fetchJobs() }, [])
+  useEffect(() => {
+    fetchJobs()
+    getRoles().then(d => setRoles(d.roles || [])).catch(console.error)
+  }, [])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm({ ...form, [e.target.id]: e.target.value })
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!form.role_id) { setError('Vui lòng chọn vị trí công việc.'); return }
     setSubmitting(true)
     setError('')
+    const selectedRole = roles.find(r => r.id === form.role_id)
     try {
       await createJob({
-        title: form.title,
+        title: selectedRole?.name ?? form.role_id,
         hourly_rate: parseFloat(form.hourly_rate),
         max_workers: parseInt(form.max_workers),
-        description: form.description || undefined,
         required_skills: form.required_skills ? form.required_skills.split(',').map(s => s.trim()).filter(Boolean) : [],
       })
-      setForm({ title: '', hourly_rate: '', max_workers: '', description: '', required_skills: '' })
+      setForm({ role_id: '', hourly_rate: '', max_workers: '', required_skills: '' })
       setShowForm(false)
       fetchJobs()
     } catch (err: any) {
@@ -121,16 +127,32 @@ const JobsPage: React.FC = () => {
                   )}
                 </AnimatePresence>
                 <form onSubmit={handleSubmit} className="space-y-5">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-widest mb-1.5">Vị trí công việc *</label>
+                    {roles.length === 0 ? (
+                      <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 text-amber-400 px-4 py-2.5 rounded-xl text-sm">
+                        Chưa có vị trí nào.{' '}
+                        <a href="/employer/roles" className="underline underline-offset-2 hover:text-amber-300 transition-colors">Tạo vị trí tại đây</a>
+                      </div>
+                    ) : (
+                      <select
+                        value={form.role_id}
+                        onChange={e => setForm({ ...form, role_id: e.target.value })}
+                        className="w-full bg-slate-900/80 border border-white/[0.10] text-slate-100 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/15 focus:border-cyan-500/60 transition-all"
+                      >
+                        <option value="">-- Chọn vị trí --</option>
+                        {roles.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                      </select>
+                    )}
+                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                    <Input id="title" label="Tên việc làm *" placeholder="Nhân viên phục vụ" required value={form.title} onChange={handleChange} />
                     <Input id="hourly_rate" label="Lương/giờ (VNĐ) *" type="number" placeholder="30000" required value={form.hourly_rate} onChange={handleChange} />
                     <Input id="max_workers" label="Số lượng tối đa *" type="number" placeholder="5" required value={form.max_workers} onChange={handleChange} />
-                    <Input id="required_skills" label="Kỹ năng yêu cầu" placeholder="giao tiếp, nhanh nhẹn (cách nhau bằng dấu phẩy)" value={form.required_skills} onChange={handleChange} />
-                    <Input id="description" label="Mô tả" placeholder="Mô tả công việc..." value={form.description} onChange={handleChange} className="md:col-span-2" />
+                    <Input id="required_skills" label="Kỹ năng yêu cầu" placeholder="giao tiếp, nhanh nhẹn (cách nhau bằng dấu phẩy)" value={form.required_skills} onChange={handleChange} className="md:col-span-2" />
                   </div>
                   <div className="flex justify-end gap-3 pt-2">
                     <Button type="button" variant="ghost" onClick={() => setShowForm(false)}>Hủy</Button>
-                    <Button type="submit" variant="primary" isLoading={submitting}>Tạo việc làm</Button>
+                    <Button type="submit" variant="primary" isLoading={submitting} disabled={roles.length === 0}>Tạo việc làm</Button>
                   </div>
                 </form>
               </Card>

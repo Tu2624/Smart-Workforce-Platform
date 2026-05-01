@@ -44,6 +44,19 @@ export class ShiftsController {
     }
   })
 
+  clone = asyncHandler(async (req: AuthRequest, res: Response) => {
+    try {
+      const daysOffset = parseInt(req.body.days_offset) || 7
+      const result = await shiftsService.cloneShift(req.params.id, req.user!.id, daysOffset)
+      res.status(201).json(result)
+    } catch (err: any) {
+      if (err.message === 'SHIFT_NOT_FOUND') throw new AppError(404, 'Không tìm thấy ca làm việc', 'SHIFT_NOT_FOUND')
+      if (err.message === 'FORBIDDEN') throw new AppError(403, 'Bạn không sở hữu ca làm việc này', 'FORBIDDEN')
+      if (err.message === 'CANNOT_CLONE_CANCELLED') throw new AppError(400, 'Không thể sao chép ca đã huỷ', 'CANNOT_CLONE_CANCELLED')
+      throw err
+    }
+  })
+
   remove = asyncHandler(async (req: AuthRequest, res: Response) => {
     try {
       const result = await shiftsService.deleteShift(req.params.id, req.user!.id)
@@ -51,6 +64,7 @@ export class ShiftsController {
     } catch (err: any) {
       if (err.message === 'SHIFT_NOT_FOUND') throw new AppError(404, 'Không tìm thấy ca làm việc', 'SHIFT_NOT_FOUND')
       if (err.message === 'FORBIDDEN') throw new AppError(403, 'Bạn không sở hữu ca làm việc này', 'FORBIDDEN')
+      if (err.message === 'CANNOT_DELETE_SHIFT') throw new AppError(400, 'Chỉ có thể xóa ca ở trạng thái mở hoặc đã huỷ', 'CANNOT_DELETE_SHIFT')
       throw err
     }
   })
@@ -72,11 +86,11 @@ export class ShiftsController {
       res.status(200).json(result)
     } catch (err: any) {
       const map: Record<string, [number, string]> = {
-        SHIFT_NOT_FOUND:       [404, 'Không tìm thấy ca làm việc'],
-        FORBIDDEN:             [403, 'Bạn không sở hữu ca làm việc này'],
-        REGISTRATION_NOT_FOUND:[404, 'Không tìm thấy đơn đăng ký'],
-        ALREADY_REVIEWED:      [409, 'Đơn đăng ký đã được duyệt trước đó'],
-        SHIFT_FULL:            [409, 'Ca làm việc đã đầy'],
+        SHIFT_NOT_FOUND: [404, 'Không tìm thấy ca làm việc'],
+        FORBIDDEN: [403, 'Bạn không sở hữu ca làm việc này'],
+        REGISTRATION_NOT_FOUND: [404, 'Không tìm thấy đơn đăng ký'],
+        ALREADY_REVIEWED: [409, 'Đơn đăng ký đã được duyệt trước đó'],
+        SHIFT_FULL: [409, 'Ca làm việc đã đầy'],
       }
       const errorDetail = map[err.message]
       if (errorDetail) {
@@ -91,6 +105,11 @@ export class ShiftsController {
     res.status(200).json(result)
   })
 
+  getChartData = asyncHandler(async (req: AuthRequest, res: Response) => {
+    const result = await shiftsService.getStudentChartData(req.user!.id)
+    res.status(200).json(result)
+  })
+
   register = asyncHandler(async (req: AuthRequest, res: Response) => {
     try {
       const result = await shiftsService.registerShift(req.params.id, req.user!.id)
@@ -101,6 +120,7 @@ export class ShiftsController {
       if (err.message === 'FORBIDDEN') throw new AppError(403, 'Bạn không thể đăng ký ca làm việc bên ngoài công ty của mình', 'FORBIDDEN')
       if (err.message === 'SHIFT_FULL') throw new AppError(409, 'Ca làm việc đã đầy', 'SHIFT_FULL')
       if (err.message === 'ALREADY_REGISTERED') throw new AppError(409, 'Bạn đã đăng ký ca làm việc này rồi', 'ALREADY_REGISTERED')
+      if (err.message === 'SHIFT_TIME_CONFLICT') throw new AppError(409, 'Ca này trùng lịch với ca đã được duyệt của bạn', 'SHIFT_TIME_CONFLICT')
       throw err
     }
   })

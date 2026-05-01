@@ -10,7 +10,7 @@ const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d'
 
 export class AuthService {
   async registerEmployer(data: any) {
-    const { email, password, full_name, phone, company_name, address, description } = data
+    const { email, password, full_name, phone, company_name, address, description, industry } = data
 
     const [existing] = await pool.query('SELECT id FROM users WHERE email = ?', [email])
     if ((existing as any[]).length > 0) {
@@ -32,8 +32,8 @@ export class AuthService {
 
       // Create employer profile
       await connection.query(
-        'INSERT INTO employer_profiles (id, user_id, company_name, address, description) VALUES (?, ?, ?, ?, ?)',
-        [uuidv4(), userId, company_name, address, description]
+        'INSERT INTO employer_profiles (id, user_id, company_name, address, description, industry) VALUES (?, ?, ?, ?, ?, ?)',
+        [uuidv4(), userId, company_name, address, description, industry || null]
       )
 
       await connection.commit()
@@ -110,12 +110,13 @@ export class AuthService {
     // Update profile table
     if (Object.keys(profileData).length > 0) {
       if (role === 'employer') {
-        const { company_name, address, description } = profileData
+        const { company_name, address, description, industry } = profileData
         const updates: string[] = []
         const values: any[] = []
         if (company_name) { updates.push('company_name = ?'); values.push(company_name) }
         if (address) { updates.push('address = ?'); values.push(address) }
         if (description) { updates.push('description = ?'); values.push(description) }
+        if (industry !== undefined) { updates.push('industry = ?'); values.push(industry || null) }
         
         if (updates.length > 0) {
           values.push(userId)

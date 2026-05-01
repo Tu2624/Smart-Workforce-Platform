@@ -7,6 +7,7 @@ export interface CreateShiftData {
   max_workers: number
   title?: string
   auto_assign?: boolean
+  role_id?: string
 }
 
 export const getShifts = (params?: Record<string, any>) =>
@@ -23,6 +24,9 @@ export const updateShift = (id: string, data: Partial<Omit<CreateShiftData, 'job
 
 export const deleteShift = (id: string) =>
   apiClient.delete(`/shifts/${id}`).then(r => r.data)
+
+export const cloneShift = (id: string, daysOffset = 7) =>
+  apiClient.post(`/shifts/${id}/clone`, { days_offset: daysOffset }).then(r => r.data)
 
 export const registerShift = (id: string) =>
   apiClient.post(`/shifts/${id}/register`).then(r => r.data)

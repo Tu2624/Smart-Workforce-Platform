@@ -5,7 +5,7 @@ import DashboardLayout from '../../components/layout/DashboardLayout'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import { containerVariants, itemVariants } from '../../utils/animations'
-import { getShifts } from '../../api/shifts'
+import { getShifts, deleteShift } from '../../api/shifts'
 import { Shift } from '../../types'
 
 const STATUS_STYLES: Record<string, string> = {
@@ -26,6 +26,7 @@ const AllShiftsPage: React.FC = () => {
   const [shifts, setShifts] = useState<Shift[]>([])
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState('')
+  const [deletingShiftId, setDeletingShiftId] = useState<string | null>(null)
 
   const fetchShifts = async () => {
     setLoading(true)
@@ -38,6 +39,19 @@ const AllShiftsPage: React.FC = () => {
   }
 
   useEffect(() => { fetchShifts() }, [statusFilter])
+
+  const handleDeleteShift = async (shiftId: string) => {
+    if (!confirm('Bạn có chắc muốn xóa ca làm này? Hành động này không thể hoàn tác.')) return
+    setDeletingShiftId(shiftId)
+    try {
+      await deleteShift(shiftId)
+      setShifts(prev => prev.filter(s => s.id !== shiftId))
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Xóa ca thất bại.')
+    } finally {
+      setDeletingShiftId(null)
+    }
+  }
 
   return (
     <DashboardLayout>
@@ -73,6 +87,11 @@ const AllShiftsPage: React.FC = () => {
                         <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_STYLES[shift.status]}`}>
                           {STATUS_LABELS[shift.status]}
                         </span>
+                        {(shift as any).role_name && (
+                          <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold bg-violet-500/10 text-violet-400 ring-1 ring-inset ring-violet-500/20">
+                            {(shift as any).role_name}
+                          </span>
+                        )}
                       </div>
                       <p className="text-slate-500 text-sm mt-1">
                         {(shift as any).job_title && <span className="text-cyan-400/80 font-medium">{(shift as any).job_title} · </span>}
@@ -80,9 +99,21 @@ const AllShiftsPage: React.FC = () => {
                         {' · '}{shift.current_workers}/{shift.max_workers} người
                       </p>
                     </div>
-                    <Link to={`/employer/shifts/${shift.id}`}>
-                      <Button variant="secondary" size="sm">Chi tiết</Button>
-                    </Link>
+                    <div className="flex items-center gap-2">
+                      {(shift.status === 'open' || shift.status === 'cancelled') && (
+                        <Button
+                          variant="danger"
+                          size="sm"
+                          isLoading={deletingShiftId === shift.id}
+                          onClick={() => handleDeleteShift(shift.id)}
+                        >
+                          Xóa
+                        </Button>
+                      )}
+                      <Link to={`/employer/shifts/${shift.id}`}>
+                        <Button variant="secondary" size="sm">Chi tiết</Button>
+                      </Link>
+                    </div>
                   </div>
                 </Card>
               </motion.div>

@@ -89,27 +89,35 @@ const EmployerPayrollDetail: React.FC = () => {
                   <thead>
                     <tr className="border-b border-white/[0.08]">
                       <th className="pb-3 pr-4 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-widest">Ca làm</th>
-                      <th className="pb-3 pr-4 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-widest">Kế hoạch</th>
-                      <th className="pb-3 pr-4 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-widest">Thực tế</th>
-                      <th className="pb-3 pr-4 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-widest">Lương/giờ</th>
+                      <th className="pb-3 pr-4 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-widest">Giờ vào</th>
+                      <th className="pb-3 pr-4 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-widest">Giờ ra</th>
+                      <th className="pb-3 pr-4 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-widest hidden sm:table-cell">Kế hoạch</th>
+                      <th className="pb-3 pr-4 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-widest hidden sm:table-cell">Thực tế</th>
+                      <th className="pb-3 pr-4 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-widest hidden md:table-cell">Lương/giờ</th>
                       <th className="pb-3 pr-4 text-left text-[11px] font-semibold text-slate-500 uppercase tracking-widest">Khấu trừ</th>
                       <th className="pb-3 text-right text-[11px] font-semibold text-slate-500 uppercase tracking-widest">Thành tiền</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {payroll.items.map((item: any) => (
+                    {payroll.items.map((item: any) => {
+                      const fmtTime = (dt?: string) => dt ? new Date(dt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '—'
+                      const fmtDate = (dt?: string) => dt ? new Date(dt).toLocaleDateString('vi-VN') : ''
+                      return (
                       <tr key={item.id} className="border-b border-white/[0.04] last:border-0 hover:bg-white/[0.04] transition-colors">
                         <td className="py-2.5 pr-4">
                           <p className="font-semibold text-slate-100">{item.shift_title || 'Ca làm việc'}</p>
-                          <p className="text-xs text-slate-500">{item.start_time ? new Date(item.start_time).toLocaleDateString('vi-VN') : ''}</p>
+                          <p className="text-xs text-slate-500">{fmtDate(item.check_in_time ?? item.start_time)}</p>
                         </td>
-                        <td className="py-2.5 pr-4 text-slate-400">{Number(item.scheduled_hours).toFixed(1)}h</td>
-                        <td className="py-2.5 pr-4 text-slate-400">{Number(item.hours_worked).toFixed(1)}h</td>
-                        <td className="py-2.5 pr-4 text-slate-400">{Number(item.hourly_rate).toLocaleString('vi-VN')}đ</td>
+                        <td className="py-2.5 pr-4 text-slate-300 tabular-nums">{fmtTime(item.check_in_time)}</td>
+                        <td className="py-2.5 pr-4 text-slate-300 tabular-nums">{fmtTime(item.check_out_time)}</td>
+                        <td className="py-2.5 pr-4 text-slate-400 hidden sm:table-cell">{Number(item.scheduled_hours).toFixed(1)}h</td>
+                        <td className="py-2.5 pr-4 text-slate-400 hidden sm:table-cell">{Number(item.hours_worked).toFixed(1)}h</td>
+                        <td className="py-2.5 pr-4 text-slate-400 hidden md:table-cell">{Number(item.hourly_rate).toLocaleString('vi-VN')}đ</td>
                         <td className="py-2.5 pr-4 text-red-400">{item.deduction_minutes > 0 ? `-${Number(item.deduction_amount).toLocaleString('vi-VN')}đ` : '—'}</td>
                         <td className="py-2.5 text-right font-semibold text-slate-100">{Number(item.subtotal).toLocaleString('vi-VN')}đ</td>
                       </tr>
-                    ))}
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>

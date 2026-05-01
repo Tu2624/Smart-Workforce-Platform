@@ -118,7 +118,32 @@ export class JobsService {
     )
     if ((shiftRows as any[])[0].count > 0) throw new Error('CANNOT_DELETE_JOB')
 
-    await pool.query('DELETE FROM jobs WHERE id = ?', [jobId])
+    const connection = await pool.getConnection()
+    await connection.beginTransaction()
+    try {
+      const [shiftIdRows] = await connection.query('SELECT id FROM shifts WHERE job_id = ?', [jobId])
+      const shiftIds = (shiftIdRows as any[]).map(r => r.id)
+
+      if (shiftIds.length > 0) {
+        const [attRows] = await connection.query('SELECT id FROM attendance WHERE shift_id IN (?)', [shiftIds])
+        const attIds = (attRows as any[]).map(r => r.id)
+
+        if (attIds.length > 0) {
+          await connection.query('DELETE FROM payroll_items WHERE attendance_id IN (?)', [attIds])
+        }
+        await connection.query('DELETE FROM payroll_items WHERE shift_id IN (?)', [shiftIds])
+        await connection.query('DELETE FROM attendance WHERE shift_id IN (?)', [shiftIds])
+      }
+
+      await connection.query('DELETE FROM jobs WHERE id = ?', [jobId])
+      await connection.commit()
+    } catch (err) {
+      await connection.rollback()
+      throw err
+    } finally {
+      connection.release()
+    }
+
     return { message: 'Job deleted successfully' }
   }
 

@@ -138,9 +138,11 @@ export class PayrollService {
     if (role === 'employer' && payroll.employer_id !== userId) throw new Error('FORBIDDEN')
 
     const [items] = await pool.query(
-      `SELECT pi.*, s.title as shift_title, s.start_time, s.end_time
+      `SELECT pi.*, s.title as shift_title, s.start_time, s.end_time,
+              a.check_in_time, a.check_out_time
        FROM payroll_items pi
        LEFT JOIN shifts s ON pi.shift_id = s.id
+       LEFT JOIN attendance a ON pi.attendance_id = a.id
        WHERE pi.payroll_id = ? ORDER BY s.start_time ASC`,
       [payrollId]
     )
@@ -156,6 +158,8 @@ export class PayrollService {
           hourly_rate: parseFloat(i.hourly_rate),
           deduction_amount: parseFloat(i.deduction_amount),
           subtotal: parseFloat(i.subtotal),
+          check_in_time: i.check_in_time ?? null,
+          check_out_time: i.check_out_time ?? null,
         })),
       },
     }
@@ -191,38 +195,50 @@ export class PayrollService {
     const ws = wb.addWorksheet('Bảng lương')
 
     ws.columns = [
-      { header: 'Ca làm việc', key: 'shift_title', width: 28 },
-      { header: 'Ngày', key: 'date', width: 14 },
-      { header: 'Giờ kế hoạch', key: 'scheduled_hours', width: 14 },
-      { header: 'Giờ thực tế', key: 'hours_worked', width: 14 },
-      { header: 'Lương/giờ', key: 'hourly_rate', width: 14 },
-      { header: 'Khấu trừ (đ)', key: 'deduction_amount', width: 14 },
-      { header: 'Thành tiền (đ)', key: 'subtotal', width: 16 },
+      { header: 'Ca làm việc',   key: 'shift_title',       width: 28 },
+      { header: 'Ngày',          key: 'date',               width: 13 },
+      { header: 'Giờ vào',       key: 'check_in',           width: 11 },
+      { header: 'Giờ ra',        key: 'check_out',          width: 11 },
+      { header: 'Giờ KH',        key: 'scheduled_hours',    width: 10 },
+      { header: 'Giờ TT',        key: 'hours_worked',       width: 10 },
+      { header: 'Lương/giờ',     key: 'hourly_rate',        width: 14 },
+      { header: 'Khấu trừ (đ)', key: 'deduction_amount',   width: 14 },
+      { header: 'Thành tiền (đ)', key: 'subtotal',          width: 16 },
     ]
 
     ws.getRow(1).font = { bold: true }
     ws.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8E8FF' } }
 
+    const fmtTime = (dt: any) =>
+      dt ? new Date(dt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '—'
+    const fmtDate = (dt: any) =>
+      dt ? new Date(dt).toLocaleDateString('vi-VN') : ''
+
     for (const item of payroll.items) {
       ws.addRow({
-        shift_title: item.shift_title || 'Ca làm việc',
-        date: item.start_time ? new Date(item.start_time).toLocaleDateString('vi-VN') : '',
-        scheduled_hours: Number(item.scheduled_hours).toFixed(1),
-        hours_worked: Number(item.hours_worked).toFixed(1),
-        hourly_rate: Number(item.hourly_rate),
+        shift_title:      item.shift_title || 'Ca làm việc',
+        date:             fmtDate(item.check_in_time ?? item.start_time),
+        check_in:         fmtTime(item.check_in_time),
+        check_out:        fmtTime(item.check_out_time),
+        scheduled_hours:  Number(item.scheduled_hours).toFixed(1),
+        hours_worked:     Number(item.hours_worked).toFixed(1),
+        hourly_rate:      Number(item.hourly_rate),
         deduction_amount: Number(item.deduction_amount),
-        subtotal: Number(item.subtotal),
+        subtotal:         Number(item.subtotal),
       })
     }
 
     // Footer row
     const totalRow = ws.addRow({
-      shift_title: 'TỔNG',
-      scheduled_hours: '',
-      hours_worked: Number(payroll.total_hours).toFixed(1),
-      hourly_rate: '',
+      shift_title:      'TỔNG',
+      date:             '',
+      check_in:         '',
+      check_out:        '',
+      scheduled_hours:  '',
+      hours_worked:     Number(payroll.total_hours).toFixed(1),
+      hourly_rate:      '',
       deduction_amount: '',
-      subtotal: Number(payroll.total_amount),
+      subtotal:         Number(payroll.total_amount),
     })
     totalRow.font = { bold: true }
     totalRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD1FAE5' } }

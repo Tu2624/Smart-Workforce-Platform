@@ -8,6 +8,7 @@ export const createShiftSchema = z.object({
     max_workers: z.number().int().positive('Max workers must be a positive integer'),
     title: z.string().optional(),
     auto_assign: z.boolean().optional(),
+    role_id: z.string().uuid('Invalid role ID').optional(),
   }).refine(data => new Date(data.end_time) > new Date(data.start_time), {
     message: 'End time must be after start time',
     path: ['end_time'],
@@ -21,6 +22,7 @@ export const updateShiftSchema = z.object({
     end_time: z.string().optional(),
     max_workers: z.number().int().positive().optional(),
     auto_assign: z.boolean().optional(),
+    role_id: z.string().uuid('Invalid role ID').nullable().optional(),
   }).refine(data => {
     if (data.start_time && data.end_time) {
       return new Date(data.end_time) > new Date(data.start_time)

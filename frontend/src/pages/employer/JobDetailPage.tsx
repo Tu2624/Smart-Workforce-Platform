@@ -7,7 +7,8 @@ import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
 import { containerVariants, itemVariants } from '../../utils/animations'
 import { getJob, updateJob, updateJobStatus } from '../../api/jobs'
-import { getShifts, createShift } from '../../api/shifts'
+import { getShifts, createShift, deleteShift, cloneShift } from '../../api/shifts'
+import { getRoles } from '../../api/employers'
 import { Job, Shift } from '../../types'
 
 const STATUS_STYLES: Record<string, string> = {
@@ -39,18 +40,22 @@ const JobDetailPage: React.FC = () => {
   const [editLoading, setEditLoading] = useState(false)
   const [editError, setEditError] = useState('')
 
+  const [roles, setRoles] = useState<{ id: string; name: string }[]>([])
   const [showShiftForm, setShowShiftForm] = useState(false)
-  const [shiftForm, setShiftForm] = useState({ title: '', start_time: '', end_time: '', max_workers: '', auto_assign: false })
+  const [shiftForm, setShiftForm] = useState({ title: '', start_time: '', end_time: '', max_workers: '', auto_assign: false, role_id: '' })
   const [shiftSubmitting, setShiftSubmitting] = useState(false)
   const [shiftError, setShiftError] = useState('')
+  const [deletingShiftId, setDeletingShiftId] = useState<string | null>(null)
+  const [cloneWeekLoading, setCloneWeekLoading] = useState(false)
 
   const fetchAll = async () => {
     if (!id) return
     setLoading(true)
     try {
-      const [jobData, shiftData] = await Promise.all([getJob(id), getShifts({ job_id: id })])
+      const [jobData, shiftData, rolesData] = await Promise.all([getJob(id), getShifts({ job_id: id }), getRoles()])
       setJob(jobData.job)
       setShifts(shiftData.shifts)
+      setRoles(rolesData.roles || [])
       setEditForm({
         title: jobData.job.title,
         hourly_rate: jobData.job.hourly_rate.toString(),
@@ -89,6 +94,51 @@ const JobDetailPage: React.FC = () => {
     try { await updateJobStatus(id!, status); fetchAll() } catch {}
   }
 
+  const handleCopyShift = (shift: Shift) => {
+    const addDays = (dt: string) => {
+      const d = new Date(dt)
+      d.setDate(d.getDate() + 7)
+      return d.toISOString().slice(0, 16)
+    }
+    setShiftForm({
+      title: shift.title || '',
+      start_time: addDays(shift.start_time),
+      end_time: addDays(shift.end_time),
+      max_workers: String(shift.max_workers),
+      auto_assign: shift.auto_assign,
+      role_id: (shift as any).role_id || '',
+    })
+    setShowShiftForm(true)
+    setShiftError('')
+  }
+
+  const handleCloneWeek = async () => {
+    if (!confirm('Tạo lại toàn bộ ca của tuần này sang tuần sau?')) return
+    setCloneWeekLoading(true)
+    try {
+      const active = shifts.filter(s => !['cancelled', 'completed'].includes(s.status))
+      await Promise.all(active.map(s => cloneShift(s.id)))
+      fetchAll()
+    } catch {
+      alert('Nhân tuần thất bại, vui lòng thử lại.')
+    } finally {
+      setCloneWeekLoading(false)
+    }
+  }
+
+  const handleDeleteShift = async (shiftId: string) => {
+    if (!confirm('Bạn có chắc muốn xóa ca làm này? Hành động này không thể hoàn tác.')) return
+    setDeletingShiftId(shiftId)
+    try {
+      await deleteShift(shiftId)
+      setShifts(prev => prev.filter(s => s.id !== shiftId))
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Xóa ca thất bại.')
+    } finally {
+      setDeletingShiftId(null)
+    }
+  }
+
   const handleShiftSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setShiftSubmitting(true); setShiftError('')
@@ -100,8 +150,9 @@ const JobDetailPage: React.FC = () => {
         end_time: shiftForm.end_time,
         max_workers: parseInt(shiftForm.max_workers),
         auto_assign: shiftForm.auto_assign,
+        role_id: shiftForm.role_id || undefined,
       })
-      setShiftForm({ title: '', start_time: '', end_time: '', max_workers: '', auto_assign: false })
+      setShiftForm({ title: '', start_time: '', end_time: '', max_workers: '', auto_assign: false, role_id: '' })
       setShowShiftForm(false)
       fetchAll()
     } catch (err: any) {
@@ -181,9 +232,16 @@ const JobDetailPage: React.FC = () => {
 
         {/* Shifts section */}
         <motion.div variants={itemVariants}>
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
             <h2 className="text-base font-display font-semibold text-slate-200">Ca làm việc ({shifts.length})</h2>
-            <Button variant="primary" size="sm" onClick={() => { setShowShiftForm(true); setShiftError('') }}>+ Tạo ca</Button>
+            <div className="flex items-center gap-2">
+              {shifts.some(s => !['cancelled', 'completed'].includes(s.status)) && (
+                <Button variant="secondary" size="sm" isLoading={cloneWeekLoading} onClick={handleCloneWeek}>
+                  Nhân tuần sau
+                </Button>
+              )}
+              <Button variant="primary" size="sm" onClick={() => { setShowShiftForm(true); setShiftError('') }}>+ Tạo ca</Button>
+            </div>
           </div>
 
           <AnimatePresence>
@@ -207,6 +265,27 @@ const JobDetailPage: React.FC = () => {
                     )}
                   </AnimatePresence>
                   <form onSubmit={handleShiftSubmit} className="space-y-4">
+                    {/* Vị trí — luôn hiện, đặt lên đầu */}
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-widest mb-1.5">Vị trí yêu cầu</label>
+                      {roles.length === 0 ? (
+                        <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 text-amber-400 px-4 py-2.5 rounded-xl text-sm">
+                          Chưa có vị trí nào.{' '}
+                          <a href="/employer/roles" className="underline underline-offset-2 hover:text-amber-300 transition-colors">Tạo vị trí tại đây</a>
+                        </div>
+                      ) : (
+                        <select
+                          value={shiftForm.role_id}
+                          onChange={e => setShiftForm({ ...shiftForm, role_id: e.target.value })}
+                          className="w-full bg-slate-900/80 border border-white/[0.10] text-slate-100 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/15 focus:border-cyan-500/60 transition-all"
+                        >
+                          <option value="">-- Hiển thị cho tất cả --</option>
+                          {roles.map(r => (
+                            <option key={r.id} value={r.id}>{r.name}</option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <Input id="shift-title" label="Tên ca (tuỳ chọn)" placeholder="Ca sáng thứ 2" value={shiftForm.title} onChange={e => setShiftForm({ ...shiftForm, title: e.target.value })} />
                       <Input id="shift-max" label="Số lượng tối đa *" type="number" required placeholder="3" value={shiftForm.max_workers} onChange={e => setShiftForm({ ...shiftForm, max_workers: e.target.value })} />
@@ -250,14 +329,36 @@ const JobDetailPage: React.FC = () => {
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="font-semibold text-slate-100 text-sm">{shift.title || `Ca #${i + 1}`}</p>
                           <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_STYLES[shift.status]}`}>{STATUS_LABELS[shift.status]}</span>
+                          {(shift as any).role_name && (
+                            <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold bg-violet-500/10 text-violet-400 ring-1 ring-inset ring-violet-500/20">
+                              {(shift as any).role_name}
+                            </span>
+                          )}
                         </div>
                         <p className="text-slate-500 text-sm mt-0.5">
                           {formatDateTime(shift.start_time)} → {formatDateTime(shift.end_time)} · {shift.current_workers}/{shift.max_workers} người
                         </p>
                       </div>
-                      <Link to={`/employer/shifts/${shift.id}`}>
-                        <Button variant="secondary" size="sm">Chi tiết</Button>
-                      </Link>
+                      <div className="flex items-center gap-2">
+                        {shift.status !== 'cancelled' && (
+                          <Button variant="ghost" size="sm" onClick={() => handleCopyShift(shift)}>
+                            Sao chép
+                          </Button>
+                        )}
+                        {(shift.status === 'open' || shift.status === 'cancelled') && (
+                          <Button
+                            variant="danger"
+                            size="sm"
+                            isLoading={deletingShiftId === shift.id}
+                            onClick={() => handleDeleteShift(shift.id)}
+                          >
+                            Xóa
+                          </Button>
+                        )}
+                        <Link to={`/employer/shifts/${shift.id}`}>
+                          <Button variant="secondary" size="sm">Chi tiết</Button>
+                        </Link>
+                      </div>
                     </div>
                   </Card>
                 </motion.div>

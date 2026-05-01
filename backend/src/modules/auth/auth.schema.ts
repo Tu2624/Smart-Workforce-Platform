@@ -15,7 +15,8 @@ export const registerEmployerSchema = z.object({
     phone: z.string().optional(),
     company_name: z.string().min(2, 'Company name is required'),
     address: z.string().optional(),
-    description: z.string().optional()
+    description: z.string().optional(),
+    industry: z.string().max(100).optional()
   })
 })
 
@@ -35,6 +36,7 @@ export const updateProfileSchema = z.object({
     company_name: z.string().optional(),
     address: z.string().optional(),
     description: z.string().optional(),
+    industry: z.string().max(100).optional(),
     // Student fields
     student_id: z.string().optional(),
     university: z.string().optional(),

@@ -8,6 +8,17 @@ import Input from '../../components/ui/Input'
 
 const glassInput = 'w-full bg-slate-900/80 border border-white/[0.10] text-slate-100 placeholder:text-slate-600 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/15 focus:border-cyan-500/60 transition-all resize-none'
 
+const INDUSTRIES = [
+  'Nhà hàng / Ẩm thực',
+  'Bán lẻ / Cửa hàng',
+  'Sự kiện / Hội nghị',
+  'Logistics / Vận chuyển',
+  'Khách sạn / Du lịch',
+  'Giáo dục',
+  'Công nghệ thông tin',
+  'Khác',
+]
+
 const features = [
   { icon: '⚡', text: 'Quản lý ca làm tự động' },
   { icon: '💰', text: 'Tính lương chính xác, minh bạch' },
@@ -16,7 +27,7 @@ const features = [
 
 const RegisterPage = () => {
   const [formData, setFormData] = useState({
-    email: '', password: '', full_name: '', phone: '', company_name: '', address: '', description: ''
+    email: '', password: '', full_name: '', phone: '', company_name: '', address: '', description: '', industry: ''
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -24,7 +35,7 @@ const RegisterPage = () => {
   const navigate = useNavigate()
   const registerEmployer = useAuthStore((state) => state.registerEmployer)
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     setFormData({ ...formData, [e.target.id]: e.target.value })
   }
 
@@ -148,6 +159,13 @@ const RegisterPage = () => {
                 <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest mb-3 pb-2 border-b border-white/[0.08]">Thông tin tổ chức</p>
                 <div className="space-y-4">
                   <Input id="company_name" label="Tên doanh nghiệp" type="text" placeholder="Công ty TNHH..." required value={formData.company_name} onChange={handleChange} />
+                  <div className="space-y-1.5">
+                    <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-widest">Ngành nghề</label>
+                    <select id="industry" className={glassInput} value={formData.industry} onChange={handleChange}>
+                      <option value="">-- Chọn ngành nghề --</option>
+                      {INDUSTRIES.map(ind => <option key={ind} value={ind}>{ind}</option>)}
+                    </select>
+                  </div>
                   <Input id="address" label="Địa chỉ trụ sở" type="text" placeholder="Số 123, Quận..." value={formData.address} onChange={handleChange} />
                   <div className="space-y-1.5">
                     <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-widest">Mô tả</label>

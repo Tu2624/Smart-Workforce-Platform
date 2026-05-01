@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Current Status
 
-Phase 7 complete. All features fully implemented. No pending items.
+Phase 7 complete. Phase 8 in progress (employer roles system).
 
 **Phase 7 additions:**
 - Bug fixes: Socket import, JWT secret hardening, array wrapping query, payroll race condition (INSERT IGNORE + UNIQUE), reputation in transaction, active shift end_time grace period, admin form validation + success toast
@@ -16,6 +16,15 @@ Phase 7 complete. All features fully implemented. No pending items.
 - Reports page: fully wired to backend `/api/reports/*` endpoints with charts
 - Unit tests: 31 tests in `backend/tests/` (payrollCalc, attendance, reputation)
 - Production readiness: ErrorBoundary, Skeleton components, `.env.example` with comments, `jest.config.js`
+
+**Phase 8 additions (in progress):**
+- `employer_roles` table: employers can define named job roles/positions (`20260426000200`)
+- `industry` field on `employer_profiles` (`20260426000100`)
+- `role_id` FK on `student_profiles` — assigns a role to each employee (`20260426000300`)
+- `role_id` FK on `shifts` — shifts can require a specific role (`20260427000100`)
+- New backend files: `roles.controller.ts`, `roles.service.ts`, `roles.schema.ts` under `modules/employers/`
+- New frontend page: `RolesPage.tsx` at `/employer/roles`
+- New utility: `shiftConflict.ts` — overlap detection for approved registrations
 
 ## Commands
 
@@ -35,7 +44,6 @@ npm run seed         # seed test data
 npm run test         # Jest (runs from backend/tests/, always --runInBand)
 npm run test:watch   # Jest watch mode
 npm run lint         # ESLint on src/
-# Note: backend/tests/ is currently empty — no tests written yet
 
 # Run a single test file
 npx jest tests/payrollCalc.test.ts
@@ -85,7 +93,7 @@ modules/<name>/
   <name>.schema.ts      # Zod validation schemas
 ```
 
-All modules are fully implemented: `auth`, `employers`, `jobs`, `shifts`, `attendance`, `payroll`, `notification`, `admin`.
+All modules are fully implemented: `auth`, `employers`, `jobs`, `shifts`, `attendance`, `payroll`, `notification`, `admin`, `ratings`, `reports`. `dev` module exists (router only, development utilities).
 
 **Auth flow** — JWT-based. `authMiddleware` verifies Bearer token and attaches `req.user: { id, email, role }`. `roleGuard(...roles)` restricts routes by role. Both are applied per-router, not globally.
 
@@ -99,19 +107,24 @@ All modules are fully implemented: `auth`, `employers`, `jobs`, `shifts`, `atten
 - Jobs: `active | paused | closed` — use `PATCH /api/jobs/:id/status` to transition. Can't delete a job that has non-cancelled shifts.
 - Shifts: `open | full | ongoing | completed | cancelled` — only `open` shifts can be edited. Deleting a shift cancels all `pending`/`approved` registrations in a transaction.
 
-**Serialization gotcha** — `required_skills` is stored as a JSON string in the DB and parsed to an array on retrieval. `hourly_rate` is stored as DECIMAL and parsed to float.
+**Serialization gotcha** — `required_skills` is stored as a JSON string in the DB and parsed to an array on retrieval. `hourly_rate` is stored as DECIMAL and parsed to float. `employer_profiles.industry` is a plain VARCHAR (migration `20260426000100`).
+
+**Employer roles** — `employer_roles` table (unique on `employer_id + name`). Managed via `GET/POST /api/employers/roles` and `PUT/DELETE /api/employers/roles/:role_id` — all scoped to the authenticated employer. Duplicate name returns `409 ROLE_NAME_DUPLICATE`. Deleting a role sets `student_profiles.role_id` and `shifts.role_id` to NULL via `ON DELETE SET NULL`.
 
 **Realtime** — Socket.io initialized in `src/config/socket.ts`. Use `notifyUser(userId, event, data)` or `notifyShiftRoom(shiftId, event, data)` from any service. Clients join personal rooms (`user_<id>`) and shift rooms (`shift_<id>`).
 
 **Background jobs** (`src/jobs/`):
-- `weeklyScheduler.ts` — cron `0 0 * * 1` (Monday 00:00); auto-assign pending registrations; emits `shift:approved` / `shift:rejected` to notified students
+- `weeklyScheduler.ts` — cron `0 12 * * 0` (Sunday 12:00 ICT); auto-assign pending registrations immediately after the registration deadline closes; emits `shift:approved` / `shift:rejected` to notified students
 - `autoDetectAbsent.ts` — cron `*/30 * * * *`; marks absent students; emits `absent_detected` notification
 - `lowRegistrationAlert.ts` — cron `0 4 * * 0` (Sunday 11:00 ICT = 04:00 UTC); finds shifts in next 7 days with 0 approved registrations; emits `shift:low_registration` to employer
 
 **Utilities** (`src/utils/`):
 - `payrollCalc.ts` — exports `calcPayroll(attendanceId)`: must be called after checkout and force-complete to create/update the monthly `payroll` + `payroll_item` records
 - `reputationCalc.ts` — student reputation scoring
-- `notificationHelper.ts` — exports `createNotification(userId, type, message, relatedId?)`: persists to DB **and** emits via Socket.io. Use this for user-visible persistent alerts. Call `notifyUser()` / `notifyShiftRoom()` directly only for transient real-time updates with no DB record.
+- `notificationHelper.ts` — exports `createNotification(userId, type, title, body, metadata?)`: persists to DB **and** emits via Socket.io. Use this for user-visible persistent alerts. Call `notifyUser()` / `notifyShiftRoom()` directly only for transient real-time updates with no DB record.
+- `shiftConflict.ts` — exports `hasApprovedConflict(conn, studentId, start, end, excludeShiftId?)`: returns true if the student has any approved registration whose shift overlaps the given window (`start_time < end AND end_time > start`). **Must be called with a transaction connection, not the pool**, so it sees uncommitted writes in the same transaction.
+- `serverTime.ts` — server time helper used across services.
+- `appError.ts` — `AppError(statusCode, message, code)` class; `asyncHandler.ts` wraps async route handlers.
 
 Notification types in use: `shift_approved`, `shift_rejected`, `shift_low_registration`, `absent_detected`, `payroll_updated`.
 
@@ -138,6 +151,9 @@ Notification types in use: `shift_approved`, `shift_rejected`, `shift_low_regist
 /employer/attendance       → AttendanceOverview — per-shift attendance + force-checkout (employer only)
 /employer/payroll          → PayrollList (employer only)
 /employer/payroll/:id      → EmployerPayrollDetail (employer only)
+/employer/employees        → EmployeesPage — list + create employees (employer only)
+/employer/roles            → RolesPage — CRUD for employer role definitions (employer only)
+/employer/reports          → ReportsPage — analytics dashboard with charts (employer only)
 /employer/notifications    → NotificationPage (employer only)
 /admin                     → AdminDashboard (admin only)
 /admin/users               → AdminUsersPage (admin only)
@@ -241,7 +257,7 @@ See `docs/system-overview.md §9` for the full decisions log (22 confirmed archi
 - **Migrations are append-only**: never edit existing migration files; always add a new one.
 - **Student creation**: employers create students via `POST /api/employers/employees`; students do NOT self-register. Temp password is returned only in the API response (no email service).
 - **Student belongs to one employer**: `student_profiles.employer_id` is a hard binding — no marketplace/multi-employer model.
-- **No conflict check at registration**: students may register for overlapping shifts freely; the weekly scheduler (Monday 00:00) resolves conflicts using reputation priority. Registration deadline is **Sunday 12:00 noon**.
+- **No conflict check at registration**: students may register for overlapping shifts freely; the weekly scheduler (Sunday 12:00) resolves conflicts using reputation priority. Registration deadline is **Sunday 12:00 noon**.
 - **Payroll is real-time**: a `payroll_item` is created immediately after shift checkout and accumulated into the calendar-month `payroll` record. Students see earnings update after every shift.
 - **Force-checkout**: employer can remotely checkout a student (marks `incomplete`) max **3 times per student per month** to prevent abuse.
 

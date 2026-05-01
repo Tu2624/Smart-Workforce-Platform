@@ -9,15 +9,17 @@ const router = Router()
 
 router.post('/', authMiddleware, roleGuard('employer'), validate(createShiftSchema), shiftsController.create)
 router.get('/my-stats', authMiddleware, roleGuard('student'), shiftsController.myStats)
+router.get('/chart-data', authMiddleware, roleGuard('student'), shiftsController.getChartData)
 router.get('/', authMiddleware, roleGuard('employer', 'student', 'admin'), shiftsController.list)
 router.get('/:id', authMiddleware, roleGuard('employer', 'student', 'admin'), shiftsController.getOne)
 router.put('/:id', authMiddleware, roleGuard('employer'), validate(updateShiftSchema), shiftsController.update)
 router.delete('/:id', authMiddleware, roleGuard('employer'), shiftsController.remove)
 
-router.post('/:id/register',   authMiddleware, roleGuard('student'), shiftsController.register)
+router.post('/:id/clone', authMiddleware, roleGuard('employer'), shiftsController.clone)
+router.post('/:id/register', authMiddleware, roleGuard('student'), shiftsController.register)
 router.delete('/:id/register', authMiddleware, roleGuard('student'), shiftsController.cancelRegistration)
 
-router.get('/:id/registrations',             authMiddleware, roleGuard('employer'), shiftsController.listRegistrations)
-router.patch('/:id/registrations/:reg_id',   authMiddleware, roleGuard('employer'), shiftsController.reviewRegistration)
+router.get('/:id/registrations', authMiddleware, roleGuard('employer'), shiftsController.listRegistrations)
+router.patch('/:id/registrations/:reg_id', authMiddleware, roleGuard('employer'), shiftsController.reviewRegistration)
 
 export { router as shiftsRouter }
