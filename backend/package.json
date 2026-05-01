@@ -4,7 +4,7 @@
   "scripts": {
     "dev": "tsx watch src/app.ts",
     "build": "tsc",
-    "start": "npm run migrate && node dist/app.js",
+    "start": "npm run migrate && node dist/src/app.js",
     "migrate": "db-migrate up",
     "migrate:down": "db-migrate down",
     "seed": "tsx seeds/index.ts",
