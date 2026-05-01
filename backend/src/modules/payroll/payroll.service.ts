@@ -246,7 +246,7 @@ export class PayrollService {
     ws.insertRow(1, [`Bảng lương — ${payroll.student_name || ''} — Tháng ${payroll.period_start?.slice(5, 7)}/${payroll.period_start?.slice(0, 4)}`])
     ws.getRow(1).font = { bold: true, size: 13 }
 
-    return wb.xlsx.writeBuffer() as Promise<Buffer>
+    return wb.xlsx.writeBuffer() as unknown as Promise<Buffer>
   }
 
   async updateStatus(payrollId: string, employerId: string, newStatus: 'confirmed' | 'paid') {
