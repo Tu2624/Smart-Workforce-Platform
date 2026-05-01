@@ -8,7 +8,8 @@ const pool = mysql.createPool({
   password: process.env.DB_PASSWORD || '',
   waitForConnections: true,
   connectionLimit: 10,
-  timezone: '+07:00'
+  timezone: '+07:00',
+  ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
 })
 
 export default pool

@@ -1,0 +1,15 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.payrollRouter = void 0;
+const express_1 = require("express");
+const payroll_controller_1 = require("./payroll.controller");
+const auth_middleware_1 = require("../../middlewares/auth.middleware");
+const role_middleware_1 = require("../../middlewares/role.middleware");
+const router = (0, express_1.Router)();
+exports.payrollRouter = router;
+router.get('/', auth_middleware_1.authMiddleware, (0, role_middleware_1.roleGuard)('student'), payroll_controller_1.payrollController.listMine);
+router.get('/employer', auth_middleware_1.authMiddleware, (0, role_middleware_1.roleGuard)('employer'), payroll_controller_1.payrollController.listEmployer);
+router.get('/:id', auth_middleware_1.authMiddleware, (0, role_middleware_1.roleGuard)('student', 'employer'), payroll_controller_1.payrollController.getDetail);
+router.get('/:id/export', auth_middleware_1.authMiddleware, (0, role_middleware_1.roleGuard)('student', 'employer'), payroll_controller_1.payrollController.exportExcel);
+router.patch('/:id/confirm', auth_middleware_1.authMiddleware, (0, role_middleware_1.roleGuard)('employer'), payroll_controller_1.payrollController.confirm);
+router.patch('/:id/paid', auth_middleware_1.authMiddleware, (0, role_middleware_1.roleGuard)('employer'), payroll_controller_1.payrollController.markPaid);

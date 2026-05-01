@@ -1,0 +1,17 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.jobsRouter = void 0;
+const express_1 = require("express");
+const jobs_controller_1 = require("./jobs.controller");
+const auth_middleware_1 = require("../../middlewares/auth.middleware");
+const role_middleware_1 = require("../../middlewares/role.middleware");
+const validate_middleware_1 = require("../../middlewares/validate.middleware");
+const jobs_schema_1 = require("./jobs.schema");
+const router = (0, express_1.Router)();
+exports.jobsRouter = router;
+router.post('/', auth_middleware_1.authMiddleware, (0, role_middleware_1.roleGuard)('employer'), (0, validate_middleware_1.validate)(jobs_schema_1.createJobSchema), jobs_controller_1.jobsController.create);
+router.get('/', auth_middleware_1.authMiddleware, (0, role_middleware_1.roleGuard)('employer', 'student', 'admin'), jobs_controller_1.jobsController.list);
+router.get('/:id', auth_middleware_1.authMiddleware, (0, role_middleware_1.roleGuard)('employer', 'student', 'admin'), jobs_controller_1.jobsController.getOne);
+router.put('/:id', auth_middleware_1.authMiddleware, (0, role_middleware_1.roleGuard)('employer'), (0, validate_middleware_1.validate)(jobs_schema_1.updateJobSchema), jobs_controller_1.jobsController.update);
+router.patch('/:id/status', auth_middleware_1.authMiddleware, (0, role_middleware_1.roleGuard)('employer'), (0, validate_middleware_1.validate)(jobs_schema_1.updateJobStatusSchema), jobs_controller_1.jobsController.updateStatus);
+router.delete('/:id', auth_middleware_1.authMiddleware, (0, role_middleware_1.roleGuard)('employer'), jobs_controller_1.jobsController.remove);

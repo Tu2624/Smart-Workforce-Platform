@@ -1,0 +1,24 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.employersRouter = void 0;
+const express_1 = require("express");
+const employers_controller_1 = require("./employers.controller");
+const roles_controller_1 = require("./roles.controller");
+const auth_middleware_1 = require("../../middlewares/auth.middleware");
+const role_middleware_1 = require("../../middlewares/role.middleware");
+const validate_middleware_1 = require("../../middlewares/validate.middleware");
+const employers_schema_1 = require("./employers.schema");
+const roles_schema_1 = require("./roles.schema");
+const router = (0, express_1.Router)();
+exports.employersRouter = router;
+router.get('/stats', auth_middleware_1.authMiddleware, (0, role_middleware_1.roleGuard)('employer'), employers_controller_1.employersController.getStats);
+router.get('/chart-data', auth_middleware_1.authMiddleware, (0, role_middleware_1.roleGuard)('employer'), employers_controller_1.employersController.getChartData);
+router.get('/employees', auth_middleware_1.authMiddleware, (0, role_middleware_1.roleGuard)('employer'), employers_controller_1.employersController.listEmployees);
+router.post('/employees', auth_middleware_1.authMiddleware, (0, role_middleware_1.roleGuard)('employer'), (0, validate_middleware_1.validate)(employers_schema_1.createEmployeeSchema), employers_controller_1.employersController.createEmployee);
+router.put('/employees/:id', auth_middleware_1.authMiddleware, (0, role_middleware_1.roleGuard)('employer'), (0, validate_middleware_1.validate)(employers_schema_1.updateEmployeeSchema), employers_controller_1.employersController.updateEmployee);
+router.delete('/employees/:id', auth_middleware_1.authMiddleware, (0, role_middleware_1.roleGuard)('employer'), employers_controller_1.employersController.deleteEmployee);
+// Employer roles CRUD
+router.get('/roles', auth_middleware_1.authMiddleware, (0, role_middleware_1.roleGuard)('employer'), roles_controller_1.rolesController.list);
+router.post('/roles', auth_middleware_1.authMiddleware, (0, role_middleware_1.roleGuard)('employer'), (0, validate_middleware_1.validate)(roles_schema_1.createRoleSchema), roles_controller_1.rolesController.create);
+router.put('/roles/:role_id', auth_middleware_1.authMiddleware, (0, role_middleware_1.roleGuard)('employer'), (0, validate_middleware_1.validate)(roles_schema_1.updateRoleSchema), roles_controller_1.rolesController.update);
+router.delete('/roles/:role_id', auth_middleware_1.authMiddleware, (0, role_middleware_1.roleGuard)('employer'), roles_controller_1.rolesController.remove);

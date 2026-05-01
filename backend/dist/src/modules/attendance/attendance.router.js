@@ -1,0 +1,17 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.attendanceRouter = void 0;
+const express_1 = require("express");
+const attendance_controller_1 = require("./attendance.controller");
+const auth_middleware_1 = require("../../middlewares/auth.middleware");
+const role_middleware_1 = require("../../middlewares/role.middleware");
+const router = (0, express_1.Router)();
+exports.attendanceRouter = router;
+router.post('/checkin', auth_middleware_1.authMiddleware, (0, role_middleware_1.roleGuard)('student'), attendance_controller_1.attendanceController.checkIn);
+router.post('/checkout', auth_middleware_1.authMiddleware, (0, role_middleware_1.roleGuard)('student'), attendance_controller_1.attendanceController.checkOut);
+router.get('/', auth_middleware_1.authMiddleware, (0, role_middleware_1.roleGuard)('student'), attendance_controller_1.attendanceController.listMine);
+router.get('/shift/:shift_id', auth_middleware_1.authMiddleware, (0, role_middleware_1.roleGuard)('employer'), attendance_controller_1.attendanceController.listForShift);
+router.post('/manual-checkin', auth_middleware_1.authMiddleware, (0, role_middleware_1.roleGuard)('employer'), attendance_controller_1.attendanceController.manualCheckIn);
+router.post('/manual-checkout', auth_middleware_1.authMiddleware, (0, role_middleware_1.roleGuard)('employer'), attendance_controller_1.attendanceController.manualCheckOut);
+router.patch('/:id/force-complete', auth_middleware_1.authMiddleware, (0, role_middleware_1.roleGuard)('employer'), attendance_controller_1.attendanceController.forceComplete);
+router.patch('/:id', auth_middleware_1.authMiddleware, (0, role_middleware_1.roleGuard)('employer'), attendance_controller_1.attendanceController.updateNote);

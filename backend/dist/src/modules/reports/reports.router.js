@@ -1,0 +1,13 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.reportsRouter = void 0;
+const express_1 = require("express");
+const reports_controller_1 = require("./reports.controller");
+const auth_middleware_1 = require("../../middlewares/auth.middleware");
+const role_middleware_1 = require("../../middlewares/role.middleware");
+const router = (0, express_1.Router)();
+exports.reportsRouter = router;
+router.get('/overview', auth_middleware_1.authMiddleware, (0, role_middleware_1.roleGuard)('employer'), reports_controller_1.reportsController.getOverview);
+router.get('/payroll-summary', auth_middleware_1.authMiddleware, (0, role_middleware_1.roleGuard)('employer'), reports_controller_1.reportsController.getPayrollSummary);
+router.get('/performance', auth_middleware_1.authMiddleware, (0, role_middleware_1.roleGuard)('employer'), reports_controller_1.reportsController.getPerformance);
+router.get('/shifts', auth_middleware_1.authMiddleware, (0, role_middleware_1.roleGuard)('employer'), reports_controller_1.reportsController.getShiftStats);
